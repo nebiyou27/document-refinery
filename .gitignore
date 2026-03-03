@@ -1,0 +1,33 @@
+# Virtual environment
+venv/
+
+# API keys — never commit this
+.env
+
+# Refinery outputs
+.refinery/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# VS Code settings
+.vscode/
+
+# Mac junk
+.DS_Store
+
+# Data files (PDFs are too large for GitHub)
+data/
+
+# Test coverage
+.coverage
+htmlcov/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
