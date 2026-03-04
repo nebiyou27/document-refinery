@@ -31,3 +31,6 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+
+# CSV Files (if you have any)
+*.csv

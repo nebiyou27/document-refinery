@@ -1,0 +1,59 @@
+# This file contains the thresholds and routing rules for the extraction pipeline.
+# All values here should match the finalized settings from DOMAIN_NOTES.md.
+
+# Detection thresholds for each type of document
+triage:
+  # Scanned documents
+  scanned_detection:
+    scanned_by_density: 0.0004
+    ghost_text_scan_img: 0.80
+    ghost_text_scan_density: 0.001
+    high_image_thin_img: 0.70
+    high_image_thin_density: 0.001
+
+  # Mixed-origin documents
+  mixed_gate:
+    density_ceiling: 0.01
+    image_floor: 0.50
+
+  # Layout complexity for table-heavy documents
+  layout_complexity:
+    table_heavy_threshold: 0.3
+    multi_column_xjump: 0.08        # Provisional threshold
+
+# Strategy Routing — How to classify documents based on their signals
+strategy_routing:
+  strategy_a:
+    triggers:
+      origin_type: [mixed, native_digital]
+      layout_complexity: [single_column]
+    confidence_gates:
+      min_char_density: 0.001  # Empirically validated minimum
+      max_image_area_ratio: 0.61  # Maximum observed for strategy A
+      min_confidence_score: 0.75  # Threshold for confidence
+    escalation_target: strategy_b  # Escalate to B if confidence is low
+
+  strategy_b:
+    triggers:
+      origin_type: [mixed, native_digital]
+      layout_complexity: [multi_column, table_heavy]
+    confidence_gates:
+      min_confidence_score: 0.65  # Minimum confidence for B
+    escalation_target: strategy_c  # Escalate to C if confidence is low
+    escalation_scope: page_level  # Only escalate individual pages, not entire docs
+
+  strategy_c:
+    triggers:
+      origin_type: [scanned_image]
+    tools:
+      primary: easyocr
+      fallback: gemini_flash_free_tier
+    budget_guard:
+      max_cost_per_document_usd: 1.00
+      cost_per_page_estimate_usd: 0.003
+
+# Provenance settings — ensures extracted content can be traced back to the original source
+provenance:
+  require_page_ref: true  # Every chunk must have a page number reference
+  require_bbox: true      # Bounding box must be recorded for every chunk
+  require_content_hash: true  # Every extracted chunk must have a content hash
