@@ -56,6 +56,8 @@ class ExtractedPage(BaseModel):
     doc_id: str
     page_number: int = Field(ge=1)
     status: Literal["ok", "error"] = "ok"
+    text: str = ""
+    tables: list[dict] = Field(default_factory=list)
     metadata: ExtractionMetadata
     signals: dict[str, float | int]
     text_blocks: list[TextBlock] = Field(default_factory=list)

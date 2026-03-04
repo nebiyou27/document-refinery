@@ -178,11 +178,17 @@ def extract_with_pdfplumber(pdf_path: Path, rules: dict) -> ExtractedDocument:
                 page_hash_seed = " ".join(block.text for block in text_blocks)
                 page_hash = content_hash(page_hash_seed or f"page:{idx}:empty")
                 page_cost = 0.0
+                tables = [
+                    {"table_index": tb.table_index, "rows": tb.rows}
+                    for tb in table_blocks
+                ]
                 pages.append(
                     ExtractedPage(
                         doc_id=doc_id,
                         page_number=idx,
                         status="ok",
+                        text=page_hash_seed,
+                        tables=tables,
                         metadata=ExtractionMetadata(
                             strategy_used="strategy_a",
                             confidence_score=confidence,
@@ -205,6 +211,8 @@ def extract_with_pdfplumber(pdf_path: Path, rules: dict) -> ExtractedDocument:
                         doc_id=doc_id,
                         page_number=idx,
                         status="error",
+                        text="",
+                        tables=[],
                         metadata=ExtractionMetadata(
                             strategy_used="strategy_a",
                             confidence_score=0.0,
@@ -244,4 +252,3 @@ def extract_with_pdfplumber(pdf_path: Path, rules: dict) -> ExtractedDocument:
         ),
         pages=pages,
     )
-

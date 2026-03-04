@@ -16,20 +16,28 @@ from src.agents.extractor import run_extraction
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run extraction on a PDF.")
     parser.add_argument("pdf_path", type=Path, help="Path to PDF file")
+    parser.add_argument(
+        "--strategy",
+        choices=["strategy_a", "strategy_b"],
+        default=None,
+        help="Force extraction strategy (debug). Default runs A then escalation.",
+    )
     args = parser.parse_args()
 
-    result = run_extraction(args.pdf_path)
+    result = run_extraction(args.pdf_path, strategy=args.strategy)
 
     if result.status == "error":
         print(f"status=error doc_id={result.doc_id} message={result.error_message}")
         return 1
 
     total = len(result.pages)
-    below_a = sum(1 for p in result.pages if p.metadata.escalation_triggered)
-    pct = (below_a / total * 100.0) if total else 0.0
+    escalated = sum(1 for p in result.pages if p.metadata.escalation_triggered)
+    strategy_b_pages = sum(1 for p in result.pages if p.metadata.strategy_used == "strategy_b")
+    pct = (escalated / total * 100.0) if total else 0.0
     print(f"doc_id={result.doc_id}")
     print(f"pages_processed={total}")
-    print(f"pages_below_strategy_a_confidence={below_a}")
+    print(f"pages_escalated={escalated}")
+    print(f"strategy_b_pages={strategy_b_pages}")
     print(f"planned_escalations_pct={pct:.2f}%")
     print(f"ledger=.refinery/extraction_ledger/{result.doc_id}.jsonl")
     print(f"extracted=.refinery/extracted/{result.doc_id}.json")
@@ -38,4 +46,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
