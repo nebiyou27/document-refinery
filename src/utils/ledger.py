@@ -34,7 +34,16 @@ def append_ledger_entry(
         "confidence": round(confidence, 4),
         "signals": signals,
         "cost_estimate_usd": round(cost_estimate, 6),
+        "cost_units": {
+            "type": "runtime_seconds",
+            "value": round(processing_time, 4),
+        },
         "processing_time_sec": round(processing_time, 4),
+        "vlm_used": bool(int(signals.get("used_vlm", 0))) if isinstance(signals, dict) else False,
+        "vlm_wall_time_sec": round(
+            float(signals.get("vlm_wall_time_sec", 0.0)) if isinstance(signals, dict) else 0.0,
+            4,
+        ),
         "escalated_to": escalated_to,
     }
     with ledger_path.open("a", encoding="utf-8") as f:

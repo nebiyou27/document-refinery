@@ -19,8 +19,16 @@ class ExtractionMetadata(BaseModel):
     confidence_score: float = Field(ge=0.0, le=1.0)
     processing_time_sec: float = Field(ge=0.0)
     cost_estimate_usd: float = Field(ge=0.0)
+    vlm_used: bool = False
+    vlm_wall_time_sec: float = Field(default=0.0, ge=0.0)
+    cost_model: str | None = None
+    budget_enforced: bool = False
+    vlm_pages_used: int = Field(default=0, ge=0)
+    vlm_calls: int = Field(default=0, ge=0)
+    vlm_seconds_total: float = Field(default=0.0, ge=0.0)
     escalation_triggered: bool = False
     escalation_target: str | None = None
+    bbox_precision: Literal["page_level", "block_level"] | None = None
 
 
 class TextBlock(BaseModel):

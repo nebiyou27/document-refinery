@@ -85,3 +85,8 @@ def test_ledger_writes_one_line_per_page(tmp_path) -> None:
     assert len(lines) == 3
     payload = [json.loads(line) for line in lines]
     assert [row["page_number"] for row in payload] == [1, 2, 3]
+    assert all(row["cost_estimate_usd"] == 0.0 for row in payload)
+    assert all(row["cost_units"]["type"] == "runtime_seconds" for row in payload)
+    assert all("value" in row["cost_units"] for row in payload)
+    assert all(row["vlm_used"] is False for row in payload)
+    assert all(row["vlm_wall_time_sec"] == 0.0 for row in payload)
