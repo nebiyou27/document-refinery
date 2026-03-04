@@ -10,6 +10,14 @@ from .document_profile import (
     ProvenanceRef,
     make_error_profile,
 )
+from .extracted_document import (
+    ExtractedDocument,
+    ExtractedPage,
+    ExtractionMetadata,
+    FigureBlock,
+    TableBlock,
+    TextBlock,
+)
 
 __all__ = [
     "DocumentProfile",
@@ -20,4 +28,10 @@ __all__ = [
     "PageSignal",
     "ProvenanceRef",
     "make_error_profile",
+    "ExtractedDocument",
+    "ExtractedPage",
+    "ExtractionMetadata",
+    "FigureBlock",
+    "TableBlock",
+    "TextBlock",
 ]

@@ -42,8 +42,40 @@ RULES_PATH = Path("rubric/extraction_rules.yaml")
 
 
 def load_rules() -> dict:
-    with open(RULES_PATH, "r") as f:
-        return yaml.safe_load(f)
+    with open(RULES_PATH, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+    if not isinstance(data, dict):
+        raise ValueError("Invalid extraction_rules.yaml: root must be a mapping")
+
+    required_paths = [
+        ("triage", "scanned_detection", "scanned_by_density"),
+        ("triage", "scanned_detection", "ghost_text_scan_img"),
+        ("triage", "scanned_detection", "ghost_text_scan_density"),
+        ("triage", "scanned_detection", "high_image_thin_img"),
+        ("triage", "scanned_detection", "high_image_thin_density"),
+        ("triage", "mixed_gate", "density_ceiling"),
+        ("triage", "mixed_gate", "image_floor"),
+        ("triage", "layout_complexity", "table_heavy_threshold"),
+        ("triage", "layout_complexity", "multi_column_xjump"),
+        ("strategy_routing", "strategy_a", "confidence_gates", "min_char_density"),
+        ("strategy_routing", "strategy_a", "confidence_gates", "max_image_area_ratio"),
+        ("strategy_routing", "strategy_a", "confidence_gates", "min_confidence_score"),
+        ("strategy_routing", "strategy_b", "confidence_gates", "min_confidence_score"),
+        ("strategy_routing", "strategy_c", "budget_guard", "cost_per_page_estimate_usd"),
+    ]
+
+    for path in required_paths:
+        node = data
+        traversed: list[str] = []
+        for part in path:
+            traversed.append(part)
+            if not isinstance(node, dict) or part not in node:
+                joined = ".".join(path)
+                at = ".".join(traversed[:-1]) or "<root>"
+                raise KeyError(f"Missing config key '{joined}' (stopped at '{at}')")
+            node = node[part]
+
+    return data
 
 
 # ── Domain hint — keyword-based classifier ────────────────────
@@ -218,19 +250,19 @@ def compute_page_signal(page,
     confidence = 1.0
     sr_a = rules["strategy_routing"]["strategy_a"]
     sr_b = rules["strategy_routing"]["strategy_b"]
-    a_gates = sr_a.get("confidence_gates", sr_a)
-    b_gates = sr_b.get("confidence_gates", sr_b)
+    a_gates = sr_a["confidence_gates"]
+    b_gates = sr_b["confidence_gates"]
 
-    if density   < a_gates.get("min_char_density",     0.001): confidence -= 0.40
-    if img_ratio > a_gates.get("max_image_area_ratio", 0.61):  confidence -= 0.30
+    if density   < a_gates["min_char_density"]: confidence -= 0.40
+    if img_ratio > a_gates["max_image_area_ratio"]: confidence -= 0.30
     if len(text) < 50:                                        confidence -= 0.20
     if x_jump    > rules["triage"]["layout_complexity"]["multi_column_xjump"]:
         confidence -= 0.10
     confidence = max(round(confidence, 3), 0.0)
 
     # Page-level strategy override based on confidence
-    a_min = a_gates.get("min_confidence_score", 0.75)
-    b_min = b_gates.get("min_confidence_score", 0.65)
+    a_min = a_gates["min_confidence_score"]
+    b_min = b_gates["min_confidence_score"]
 
     if strategy == ExtractionStrategy.strategy_a and confidence < a_min:
         page_strategy = ExtractionStrategy.strategy_b
