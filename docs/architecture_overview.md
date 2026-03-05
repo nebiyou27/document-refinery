@@ -1,169 +1,158 @@
-If the `architecture_overview.md` file is empty and you need to fill it in with relevant information about the architecture of the **Document Intelligence Refinery** project, here's a suggested outline and content you can use to get started. The goal is to explain the system's high-level design, its components, and how they interact.
+# Document Intelligence Refinery: Architecture Overview (Phase 2)
 
----
+This document reflects the current Phase 2 implementation in `src/agents/extractor.py`, `src/strategies/strategy_a.py`, `src/strategies/strategy_b.py`, `src/strategies/strategy_c.py`, and `rubric/extraction_rules.yaml`.
 
-# **architecture_overview.md**
-
-## **Document Intelligence Refinery Architecture Overview**
-
-The **Document Intelligence Refinery** is an AI-based document extraction system designed to process and extract meaningful information from a variety of document types. This overview provides a high-level explanation of the system architecture, its components, and how the entire extraction pipeline functions.
-
----
-
-## **1. System Architecture Components**
-
-The system consists of multiple stages, each dedicated to a specific part of the document processing pipeline:
-
-### **1.1 Triage Agent**
-
-* **Function:** The Triage Agent is responsible for profiling documents at the start. It assesses the characteristics of each document, such as:
-
-  * Character density (`char_density`)
-  * Image ratio (`image_area_ratio`)
-  * Table count and layout type
-* **Tools Used:** `pdfplumber`, `PyMuPDF`
-* **Output:** `DocumentProfile` — Contains information about the document's layout, origin type (scanned, mixed, or digital), and other relevant metadata.
-
-### **1.2 Document Profile**
-
-* **Function:** Based on the signals from the Triage Agent, the `DocumentProfile` defines the overall characteristics of a document:
-
-  * **Origin Type:** Determines if the document is scanned, native digital, or mixed.
-  * **Layout Complexity:** Identifies whether the document has a single column, multiple columns, or heavy tables.
-  * **Extraction Strategy:** Decides which extraction strategy (A, B, or C) should be applied to the document.
-* **Output:** This profile drives the classification logic that routes the document to the appropriate extraction strategy.
-
-### **1.3 Extraction Strategies**
-
-The core of the extraction process involves three distinct strategies, each tailored for different types of documents. The strategies are executed based on the document's classification in the `DocumentProfile`.
-
-* **Strategy A — Fast Text (pdfplumber)**
-
-  * Used for **native digital documents** that have a simple layout (single column).
-  * **Fast and cheap extraction**.
-  * **Fallback:** If the extraction confidence is low, the document escalates to **Strategy B**.
-
-* **Strategy B — Layout-Aware (Docling/MinerU)**
-
-  * Used for **mixed documents** with complex layouts, such as multi-column formats or documents with heavy tables.
-  * **Medium cost** and more accurate for complex layouts.
-  * **Fallback:** If the confidence score on key pages is low, the document escalates to **Strategy C**.
-
-* **Strategy C — Vision (EasyOCR/Chunkr)**
-
-  * Used for **scanned documents** or documents with a high image-to-text ratio.
-  * **High cost** and **requires additional resources** like GPU (for more accurate OCR).
-  * **Fallback:** For low-confidence pages, the system can use a **Gemini Flash free tier** or other fallback options.
-
----
-
-## **2. Data Flow in the Pipeline**
-
-The overall pipeline can be visualized as follows:
+## End-to-End Architecture (Phase 2)
 
 ```mermaid
 flowchart TD
-    A[Raw Document] --> B[Triage Agent\n(pdfplumber signals)]
-    B --> C{DocumentProfile\n(origin + layout)}
+    RAW[Raw PDF Input] --> TRIAGE_IN
 
-    C -->|scanned_by_density OR ghost_text\nOR high_image_thin| F[Strategy C\nVision\nEasyOCR primary\nGemini Flash fallback]
-    C -->|mixed + table_heavy\nOR multi_column| E[Strategy B\nLayout-Aware\nDocling]
-    C -->|mixed + single_column\nOR native_digital| D[Strategy A\nFast Text\npdfplumber]
+    subgraph S1[Stage 1: Triage]
+        TRIAGE_IN[Triage Agent]\ntriage.scanned_detection\ntriage.mixed_gate\ntriage.layout_complexity --> PROFILE[DocumentProfile\norigin_type + layout_complexity + extraction_strategy]
+        PROFILE --> START{Starting strategy\nDocumentProfile.extraction_strategy\nunless CLI --strategy override}
+    end
 
-    D -->|page confidence < 0.75| E
-    E -->|page confidence < 0.65| F
+    START -->|strategy_a| A_RUN
+    START -->|strategy_b| B_RUN
+    START -->|strategy_c| C_RUN
 
-    D -->|page confidence >= 0.75| G[ExtractedDocument\nnormalized schema]
-    E -->|page confidence >= 0.65| G
-    F --> G
+    subgraph S2[Stage 2: ExtractionRouter]
+        direction TB
+        ROUTER[ExtractionRouter\nrun starting strategy first] --> MERGE[Replacement merge\nreplace only escalated pages]
+        MERGE --> OUT[ExtractedDocument\ninternal schema]
+        OUT --> DOWN[Downstream (Phase 3/4 placeholder)]
+    end
 
-    G --> H[ChunkValidator\nenforce invariants]
-    H --> I[Semantic Chunking Engine\nLDU List]
-    I --> J[PageIndex Builder\nLLM section summaries]
-    I --> K[Vector Store\nChromaDB]
-    I --> L[FactTable\nSQLite]
-    J --> M[Query Interface Agent\nLangGraph]
-    K --> M
-    L --> M
-    M --> N[Answer + ProvenanceChain\npage + bbox + hash]
+    subgraph STRAT[Strategy A/B/C]
+        direction TB
 
-    style D fill:#c8f7c5
-    style E fill:#fef9c3
-    style F fill:#fde8e8
-    style H fill:#e8e8ff
+        A_RUN[Strategy A (pdfplumber fast text)\nSignals: char_count, char_density, image_area_ratio, table_count\nConfidence: strategy_routing.strategy_a.confidence_gates]
+        A_ESC{Page-level escalation from A\nif confidence < min_confidence_score\nstrategy_a.escalation.to_c_if ?}
+
+        B_RUN[Strategy B (Docling layout extraction)\nPage-scoped execution on escalated subset\n(single-page temp PDFs)]
+        B_ADAPT[DoclingDocumentAdapter\nnormalize to ExtractedDocument schema]
+        B_ESC{Page-level escalation from B\nif error or confidence <\nstrategy_routing.strategy_b.confidence_gates.min_confidence_score}
+
+        C_RUN[Strategy C (Vision)\nPage-scoped execution on escalated subset\n(single-page rendered images)]
+        OCR[Primary OCR: strategy_routing.strategy_c.tools.primary_ocr]
+        VLM[Fallback VLM: strategy_routing.strategy_c.tools.fallback_vlm\n(provider + model)]
+        BUDGET[strategy_c.budget_guard\nmax_pages_per_document\nmax_vlm_pages_per_document\nmax_total_runtime_seconds\ntimeout_per_page_seconds]
+    end
+
+    A_RUN --> A_ESC
+    A_ESC -->|default_target = strategy_b\n(page-level escalation)| B_RUN
+    A_ESC -->|to_c_if image_area_ratio_gte +\nchar_density_lte + char_count_lte\n(page-level escalation)| C_RUN
+
+    B_RUN --> B_ADAPT
+    B_ADAPT --> B_ESC
+    B_ESC -->|to strategy_c\n(page-level escalation)| C_RUN
+
+    OCR -->|weak OCR or unavailable/failure policy| VLM
+    C_RUN --> OCR
+    C_RUN --> BUDGET
+
+    START --> ROUTER
+    A_RUN --> ROUTER
+    B_ADAPT --> ROUTER
+    C_RUN --> ROUTER
+
+    subgraph ART[Artifacts (.refinery)]
+        direction TB
+        PROFILES[profiles/{doc_id}.json\nDocumentProfile snapshot]
+        LEDGER[extraction_ledger/{doc_id}.jsonl\none row per executed page per strategy\nfields: strategy_used, confidence, signals,\ncost_estimate_usd, processing_time_sec, escalated_to\n(no duplicate doc_id+page_number+strategy_used)]
+        EXTRACTED[extracted/{doc_id}.json\nExtractedDocument]
+    end
+
+    PROFILE --> PROFILES
+    A_RUN --> LEDGER
+    B_RUN --> LEDGER
+    C_RUN --> LEDGER
+    OUT --> EXTRACTED
+
+    PROV[Provenance on emitted blocks\nrequired: page_number + bbox + content_hash\nbbox_precision tracked:\nblock_level (OCR/Docling) vs page_level (VLM fallback)] --> OUT
+
+    subgraph LEGEND[Legend]
+        L1[Green = Strategy A]
+        L2[Yellow = Strategy B]
+        L3[Red = Strategy C]
+        L4[Blue/Purple = Router/Governance/Validation]
+    end
+
+    classDef stratA fill:#d9f7d9,stroke:#2e7d32,stroke-width:1px,color:#0b3d0b;
+    classDef stratB fill:#fff4cc,stroke:#a67c00,stroke-width:1px,color:#4d3b00;
+    classDef stratC fill:#ffd6d6,stroke:#b00020,stroke-width:1px,color:#5a0000;
+    classDef gov fill:#e6edff,stroke:#3451b2,stroke-width:1px,color:#10245e;
+    classDef val fill:#efe6ff,stroke:#6a3fb3,stroke-width:1px,color:#3e1f6b;
+
+    class A_RUN,A_ESC stratA;
+    class B_RUN,B_ADAPT,B_ESC stratB;
+    class C_RUN,OCR,VLM stratC;
+    class ROUTER,MERGE,OUT,PROFILES,LEDGER,EXTRACTED,DOWN gov;
+    class BUDGET,PROV,START,PROFILE,TRIAGE_IN val;
 ```
 
-### **Explanation of the Data Flow:**
+## Escalation Logic Only
 
-1. **Raw Document Input:** The raw document (PDF) is passed through the **Triage Agent**, which analyzes basic signals such as image ratio and text density.
-2. **Document Classification:** The system then categorizes the document into one of three origin types (scanned, mixed, or native digital) and selects the appropriate extraction strategy.
-3. **Extraction:** Depending on the document's profile, the extraction strategy is applied:
+```mermaid
+flowchart TD
+    P[DocumentProfile.extraction_strategy from triage] --> OVR{CLI --strategy override?}
+    OVR -->|Yes| START[Start with forced strategy]
+    OVR -->|No| START2[Start with triage suggested strategy]
 
-   * **Strategy A** handles fast text extraction.
-   * **Strategy B** is used for complex layouts with tables and multiple columns.
-   * **Strategy C** is for scanned documents or those with high image content.
-4. **Chunking and Indexing:** After extraction, the content is split into **Logical Document Units (LDUs)**, which are then indexed for search and analysis.
-5. **Query Interface:** Finally, a query interface is available to interact with the data and retrieve information based on user queries.
+    START --> RUN
+    START2 --> RUN
 
----
+    RUN{Starting strategy}
 
-## **3. Key Features and Metrics**
+    RUN -->|strategy_a| A[Run Strategy A on pages]
+    A --> ADEC{Per page: confidence < strategy_routing.strategy_a.confidence_gates.min_confidence_score?}
+    ADEC -->|No| KEEP_A[Keep A page]
+    ADEC -->|Yes + strategy_a.escalation.to_c_if matches| TO_C1[Escalate page A -> C]
+    ADEC -->|Yes + otherwise| TO_B[Escalate page A -> B]
 
-### **3.1 Failure Modes**
+    TO_B --> B[Run Strategy B only on escalated pages]
+    B --> BDEC{Per page: error OR confidence < strategy_routing.strategy_b.confidence_gates.min_confidence_score?}
+    BDEC -->|No| KEEP_B[Keep B page]
+    BDEC -->|Yes| TO_C2[Escalate page B -> C]
 
-The system monitors for common failure modes, such as:
+    RUN -->|strategy_b| B0[Run Strategy B on all pages]
+    B0 --> B0DEC{Per page: error OR low confidence?}
+    B0DEC -->|No| KEEP_B0[Keep B page]
+    B0DEC -->|Yes| TO_C3[Escalate page B -> C]
 
-* **Structure Collapse:** When the document’s layout is poorly preserved (e.g., multi-column layouts flattened into text).
-* **Context Poverty:** When important sections, like tables or captions, are incorrectly extracted or lost.
-* **Provenance Blindness:** When extracted content cannot be traced back to its source location in the original document (missing bounding boxes or content hashes).
+    RUN -->|strategy_c| C0[Run Strategy C on all pages]
 
-### **3.2 Signals and Metrics**
+    TO_C1 --> C[Run Strategy C only on escalated pages]
+    TO_C2 --> C
+    TO_C3 --> C
 
-Each document is analyzed for key signals that determine which strategy to use:
+    KEEP_A --> MERGE[Replacement merge by page number]
+    KEEP_B --> MERGE
+    KEEP_B0 --> MERGE
+    C --> MERGE
+    C0 --> MERGE
+    MERGE --> FINAL[Final ExtractedDocument]
+```
 
-* **Character Density (char_density):** Measures how much text is in a document compared to its physical size.
-* **Image Area Ratio (img_ratio):** Measures how much of the document is made up of images versus text.
-* **Table Density (avg_tables/page):** Measures the frequency of tables within the document.
-* **X-Jump Ratio (x_jump):** Measures the degree of disruption in the reading order for multi-column documents.
+## How To Read This Diagram
 
-### **3.3 Provenance and Validation**
+- Stage 1 computes triage signals and emits one `DocumentProfile` with a suggested starting strategy.
+- Stage 2 starts with that strategy, unless `--strategy` is explicitly forced.
+- Strategy A always runs fast first when selected, then escalates only low-confidence/error pages.
+- `strategy_a.escalation.to_c_if` is a direct A -> C shortcut for scanned-like pages; otherwise A -> B.
+- Strategy B and Strategy C execute page-scoped on subsets (single-page temp PDF/image) to reduce memory pressure.
+- Router merges by replacement: only escalated pages are overwritten by higher-strategy output.
+- Ledger tracks executions, not just final pages: each executed `(doc_id, page_number, strategy_used)` gets one row.
+- Provenance is attached at block level (`page_number`, `bbox`, `content_hash`), with `bbox_precision` signaling block-level vs page-level coordinates.
 
-To ensure that the extraction is reliable, each document's content is tracked with a **Provenance Chain**, which includes:
+## What's Governed
 
-* **Page Number:** Each extracted chunk is associated with its original page number.
-* **Bounding Box (bbox):** The exact location of the extracted content on the page.
-* **Content Hash:** A unique identifier for the extracted content to ensure consistency and accuracy across runs.
+- `strategy_routing.strategy_c.budget_guard` defines compute governance: `max_pages_per_document`, `max_vlm_pages_per_document`, `max_total_runtime_seconds`, and `timeout_per_page_seconds` (router/strategy code enforces page and runtime caps).
+- Strategy C follows configured OCR/VLM fallback policy (`execution_policy` + `failure_policy`), with budget errors surfaced as error pages.
+- Config loading is fail-fast: triage/extractor/strategy C require critical YAML paths and raise explicit errors on missing keys.
+- Router writes governed artifacts for auditability: `.refinery/profiles/`, `.refinery/extraction_ledger/`, `.refinery/extracted/`.
+- Provenance invariants for emitted blocks require `page_number`, `bbox`, and `content_hash`; Strategy C also records `bbox_precision` (`block_level` or `page_level`).
 
----
 
-## **4. Escalation and Confidence**
 
-The system uses a tiered escalation process:
-
-1. **Document-Level Routing:** Based on initial signals, the document is routed to the most appropriate extraction strategy.
-2. **Page-Level Escalation:** If the confidence score for a page is low, the system escalates to a more powerful extraction strategy (e.g., from **Strategy A** to **Strategy B**, or from **Strategy B** to **Strategy C**).
-
----
-
-## **5. Cost and Resource Management**
-
-The system is designed to be efficient in terms of cost:
-
-* **Strategy A** is **fast and cheap**, using tools like **pdfplumber**.
-* **Strategy B** is **medium cost**, requiring tools like **Docling** and **MinerU**.
-* **Strategy C** is **expensive**, relying on **EasyOCR** and **Gemini Flash** for scanned documents or low-confidence extractions.
-
-The **escalation policy** ensures that documents are processed using the least expensive strategy unless higher quality is necessary.
-
----
-
-## **6. Future Improvements**
-
-As you move forward, you may add new document types or refine your existing thresholds. For instance:
-
-* **Testing with new document types** (e.g., newspapers or academic papers) might reveal the need for a **new signal** to detect multi-column layouts.
-* **Additional failure modes** might emerge that require adjustments to the extraction logic or strategy routing.
-
-By continuously refining the thresholds and failure detection mechanisms, the system will become more robust and able to handle a wider variety of documents.
-
----

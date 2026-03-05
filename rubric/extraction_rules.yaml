@@ -63,11 +63,16 @@ strategy_routing:
         # If VLM fails too: keep_ocr (if any) or emit an error page.
         vlm_failure: error_page
     budget_guard:
+      # Strategy C runs on local compute via Ollama (MiniCPM-V), not paid APIs.
+      # These limits are operational safeguards to prevent runaway GPU/CPU usage.
+      # They represent compute governance, not financial spend caps.
+      cost_model: local_compute
       cost_per_page_estimate_usd: 0.0
-      # Local budget guard: prevent one doc from consuming unlimited compute.
       max_pages_per_document: 200
       max_vlm_pages_per_document: 40
       max_total_runtime_seconds: 900
+      timeout_per_page_seconds: 45
+      max_render_dpi: 200
 
 provenance:
   require_page_ref: true

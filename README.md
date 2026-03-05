@@ -22,6 +22,9 @@ This pipeline solves that by:
 
 ## Pipeline Architecture
 
+Detailed Phase 2 diagram: [Architecture Overview](docs/architecture_overview.md).
+
+
 ```
 Raw Document
      │
@@ -318,3 +321,4 @@ within a free tier of 1,500 calls/day.
 ## Author
 
 **Nebiyou** · TRP-1 FDE Program · Week 3
+
