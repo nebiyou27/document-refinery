@@ -1,0 +1,661 @@
+{
+  "doc_id": "e2a5bc87d9f6",
+  "root_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+  "nodes": [
+    {
+      "node_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "title": "ROOT",
+      "section_path": [],
+      "parent_id": null,
+      "depth": 0,
+      "start_page": 1,
+      "end_page": 13,
+      "bbox": [
+        38.88,
+        51.157190839694636,
+        579.5848000000001,
+        749.562
+      ],
+      "child_ids": [
+        "be328b271dc2c67f7e90139e4b0e203bf432b7b04dead3f01ef8d1695ea508f3",
+        "c20c081b6e8c94dd55a1474d50710e21e9a5917e29a0511f415afcd768ecb1c4",
+        "015c2b4c876ad4e8fc42a5c7324a9da899ee06a03c6a18b45c342f738148211f",
+        "63a5fe088fd9f0f96109740cd412173a13294448dad06684208705b980ecec86",
+        "87dda4dabe10fef53d4f8bc6b1cf72739246901038c156ba59454c1d30c979c4",
+        "c34075f72f44ab0278b0b01f3785e7a1390d0078003b53661cc3223ccaf83134",
+        "77ed803fdea394196e4c54d4a836e0f24ac5c92908b1f8d93f11b8748593f5c0",
+        "6996359819ecd9a0d4aab82086f40274322052ecf41ce527a73953f79c439f69",
+        "88cf74b53d5f5b3dca4ffd0a5a21dae5e280b32dd5fa5c16f3c4e1607d8d6630",
+        "1fc197bf3365cf3ccc99c9d1ba7cd915a275fc5471ef81a2fcc82aeb386ce3e9",
+        "b317e1ade8448ec689fa6779071df98bd3532001fceb37ee99e91ac6c4879de2",
+        "a06cef97d3282f7e9058d3c10e6ef1cb80a8dd8dc271da10329b00399eb39288",
+        "800d929e2efb4dec427267f58a0f3f3ff9c9f707d162ef6b95e8348d72adce6e",
+        "3a82307a0d8ed22045ffef5dc1ab039a58dec2224e24c23fc77c8d108d887e00",
+        "98d5597ac28a0ef662906fef4d4745e19381a4a1dfd150ecbc8e42e112645560",
+        "e9eb089cae863c391a52c5ec6af1072a231ff486fea6238aeed64d88d4797ec3",
+        "42ddd77364cbdfc6dc7138536ecf3e64c5518b2fdd82c898883ea217e14d2367",
+        "a30bd0379ddc3603b3794115af2eb29d6bd80bf23ab87285e9cf1975e6a528a3",
+        "52cc36f73f91b8cbbbfbfbb05da7e8edea3a23aa0817d449f1aa23c62e84d642",
+        "136de81052fb317f563dc3420ab6024cba49ea17757d298a61064f1350143e46",
+        "96921c9fd1b1a500894a7437c08ffcf646983912f3aac3cec3ff02a111fd7026"
+      ],
+      "ldu_ids": [],
+      "chunk_ids": [],
+      "order_index": 0,
+      "summary": null
+    },
+    {
+      "node_id": "be328b271dc2c67f7e90139e4b0e203bf432b7b04dead3f01ef8d1695ea508f3",
+      "title": "Content",
+      "section_path": [
+        "Content"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        38.88,
+        508.37402531594785,
+        116.91504,
+        581.098
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "b6275feb9dabddb09326a6c89d80ff1c67ce8f6fcaebdd7bf45aaaabebaa8ca8",
+        "e9747fe32ee2ab43d7bee163ad516c7e499fa696b59603f1bf138aa591f9cf35"
+      ],
+      "chunk_ids": [],
+      "order_index": 1,
+      "summary": "Content Summary"
+    },
+    {
+      "node_id": "c20c081b6e8c94dd55a1474d50710e21e9a5917e29a0511f415afcd768ecb1c4",
+      "title": "Year -on -Year General, Food & Non -food Infla-",
+      "section_path": [
+        "Year -on -Year General, Food & Non -food Infla-"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        38.88,
+        455.1701925777332,
+        147.93600000000004,
+        495.538
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "b731687c77a3c3f88217b0e442a88707ec1d89aa1f0e865337d158a128a6d154"
+      ],
+      "chunk_ids": [],
+      "order_index": 2,
+      "summary": "Year -on -Year General, Food & Non -food Infla-"
+    },
+    {
+      "node_id": "015c2b4c876ad4e8fc42a5c7324a9da899ee06a03c6a18b45c342f738148211f",
+      "title": "Month -on -Month General, Food & Non -food Inflation",
+      "section_path": [
+        "Month -on -Month General, Food & Non -food Inflation"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        38.88,
+        386.5301925777332,
+        145.17600000000002,
+        441.298
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "9946f5bc99d6578b441ded42cabebd152d797abc1c0c2ada25e10bc490443b81"
+      ],
+      "chunk_ids": [],
+      "order_index": 3,
+      "summary": "Month -on -Month General, Food & Non -food Inflation"
+    },
+    {
+      "node_id": "63a5fe088fd9f0f96109740cd412173a13294448dad06684208705b980ecec86",
+      "title": "12 -Month Moving Average General, Food and Non -food Inflation",
+      "section_path": [
+        "12 -Month Moving Average General, Food and Non -food Inflation"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        38.88,
+        327.4989771715145,
+        146.68219200000004,
+        377.900776
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "746a6d240b4ea1821e7b06a04bb65a88c03aed55812bb131208e2e893cd2425e"
+      ],
+      "chunk_ids": [],
+      "order_index": 4,
+      "summary": "12 -Month Moving Average General, Food and Non -food Inflation"
+    },
+    {
+      "node_id": "87dda4dabe10fef53d4f8bc6b1cf72739246901038c156ba59454c1d30c979c4",
+      "title": "Annual Inflation trend",
+      "section_path": [
+        "Annual Inflation trend"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        38.88,
+        283.11402531594786,
+        137.38536,
+        313.44836
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "826f48dab96b3d56c94552d5c3fb805b5d6c7b5d11e183e6c843387b3d287fce"
+      ],
+      "chunk_ids": [],
+      "order_index": 5,
+      "summary": "Annual Inflation trend"
+    },
+    {
+      "node_id": "c34075f72f44ab0278b0b01f3785e7a1390d0078003b53661cc3223ccaf83134",
+      "title": "Glossary",
+      "section_path": [
+        "Glossary"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        38.88,
+        242.0740253159479,
+        115.48296,
+        255.60835999999995
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "2e928bfd538777eaace8b1b0ab4d0c0b2d80063dc2e0e969c609cd519184cc6c"
+      ],
+      "chunk_ids": [],
+      "order_index": 6,
+      "summary": "Glossary"
+    },
+    {
+      "node_id": "77ed803fdea394196e4c54d4a836e0f24ac5c92908b1f8d93f11b8748593f5c0",
+      "title": "ETHIOPIAN STATISTICAL SERVICE",
+      "section_path": [
+        "ETHIOPIAN STATISTICAL SERVICE"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 13,
+      "bbox": [
+        162.38,
+        732.2102888665999,
+        449.48,
+        749.562
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "e1d4a09af26de7676919d609962ad2d046d1e5795821b04e3fe600ba19b14e0e",
+        "39fa0989d293cf43954dfac2b21ef36be71b9cd3c6b672a041962908a57ce0d1",
+        "00d7d1befab27ceadc1dbd6364bd83273a3f782399b66614a81b48b4dc628cd4",
+        "9765d022bd5b3e0c39725cdb7d136aafc0a4eeea10cd88a60ba6a9c6801859c2",
+        "f2bf52239935f5d026e03caf738bfcde7f25f5c772475ea76b5012c56a669b18",
+        "03f1b8a3227720689dfa9d179d3b5e391514bdda241a3a62004f95cea5f3d027",
+        "0245e838dff290275599309bacde705d7e983e8a225f78b1b7339c25531e6eb1",
+        "d3330261eff2d5a4ad72c95e4d0d5942bc57ca14f19c6567c2871f2f65ef21bf",
+        "0bf73accd32c2605e487f4f10ab6d49009a4416cda0b9d9b148bb53422f4af37",
+        "d0f97dedeba3b1a5350e5ee9366f65f647730bc9c815ca3d2ed461f980e5d04e",
+        "0d98e776f46f39b7d09cad8511a5f31f06d6aad2da35e9023470f1a8afd378fb",
+        "4c08ae162cd722784c772c2ec69715f4b26fcc1bcc04350538d9526a4acba12e",
+        "e640d67eb955bc4546d812ced971a5cff2f14daddc347e5e16f7f5b682395d55"
+      ],
+      "chunk_ids": [],
+      "order_index": 7,
+      "summary": "ETHIOPIAN STATISTICAL SERVICE ETHIOPIAN STATISTICAL SERVICE ETHIOPIAN STATISTICAL SERVICE ETHIOPIAN STATISTICAL SERVICE ETHIOPIAN STATISTICAL SERVICE ETHIOPIAN STATISTICAL SERVICE ETHIOPIAN STATISTICAL SERVICE ETHIOPIAN STATISTICAL SERVICE..."
+    },
+    {
+      "node_id": "6996359819ecd9a0d4aab82086f40274322052ecf41ce527a73953f79c439f69",
+      "title": "Statistical Bulletin",
+      "section_path": [
+        "Statistical Bulletin"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 13,
+      "bbox": [
+        39.937400817871094,
+        51.157190839694636,
+        573.1679077148438,
+        727.861416
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "1272382dbfc317560e0bb980f87005f2516daf857f1ef33ef11f6a4d0309fb78",
+        "125502ac42851ab5ef38344a230ef8a38c90f16046107c7a99726cf0d586831c",
+        "fee40085de9e1591b7e13048833cac09305a3c9fd2f166574ad129e2308812f0",
+        "e5e92afa8709302f8b63e36473d16f4c59bfbd54220835fc6d6f876e967a3f74",
+        "980147b76ea1d4212a7d766c2a21b24d822a42b1d7678e5c4ac27b04ed640ccf",
+        "245e51d84a429276db943e8cb9088096495de889083575d089b2c52624d51db6",
+        "8cf01b69b040c788e373ab167a1b6fc265075f990efc12a43db7e2bbe2e85f24",
+        "cf7a931ca9d0daca7804a1cc33c791e6307d2b012e638a99d5e0756adab4be35",
+        "8e51b081e114d9d12186f22bcac815200f87d2c3545461d7cbad0b6e910ab4e6",
+        "274a26defb3607ba9692a161b294c2e48b5d5648d93a1b13cc06e1ad0558fc53",
+        "979d9e7a535994103c97166582312ea25f54300cbd6cf7caa67bd0a43bda9aef",
+        "668d796dfeaf383ab8f3389eac4c110cb618dfb99f6ad1dd8bc3e4925f9caeb7",
+        "3a1a22d4d2e68cfd88ba09ab67a304a29bece87f37c38ca77074ed0617f66b71",
+        "e93ed5e79217386ef42fc7688786bd86969bd2fa1bdf79fd66ac6b9dedc999a4",
+        "f07c6b4ffcb32586b07a066dd7a2c512580f1edb2099a2aba4add29a2178aecc",
+        "347e73b9f3e7a2c968ed579bf592954267a091f39f1ce98f8d0327c29ce825e3",
+        "be2246b925b6719ceacd1600497acf89662c7bf673bf774d9917330c310a1507",
+        "5ca3f8cae1d31b5356bb9dd5c76393c4178589e40c9bd7c7c8701bb2b9442b5b",
+        "cd1b79c56a08f90fb6cd7af7b31c8efba69fa3e700d776a5613316769d3b090f",
+        "aa5a4c29a2458967009fcdaea9b9d6bc6a4e30b3f68fabc4a6f08d14e0aa94ab",
+        "7c53da83942c3474e2da4081a5fdb4967f53cc74abc2dd2d66fcf3cc80285e6a",
+        "b1fbde4ca4c7647907257cd924823076dab2658c3221c4a69e8c9d27e987fb62",
+        "d5daa1423da1d9d9219107eda56a5362dbfe50d6f92b2fb81b681a12706075ff",
+        "5078bde231d30b7d683feee4a9eadda1e539c9147a88d6b5e92f21a0ab7b0605",
+        "cd9b619481b19b8e539cd8fd5cf59aa548f235dacd34c9c5daa2c073a09b494d",
+        "b614d3216b71d983289d15b33a2f8b2235dd15e88e5b570e1783048938b61d17",
+        "80068a787f317e26d6805f08550b425e6ddc6931294e1b717a952f867180dccf",
+        "2864e5b0c85842ddc59e8c9fff3ee62b248b6d5a419282d3484e7826a5bb4e51",
+        "d98fd6c8905b132f119155510b267abff0152b93cf321904e14b583ea7995b64",
+        "249962779081fe56626cb9bff2e6dd544f01e293c564a26526d43027eda00265",
+        "2729d65d7e1be63870d1abfb4fe7cad8bdeb81c2aab2a5bc53f04c19f8049b26",
+        "a6b4c99a7950627b163740be437f0c1175b0e470f5f24490b2ea5ac3528427c0",
+        "244e0157cef0119bea28cefaaaf6c73f47ebabc24fc3f520d0a62dc9824a2e38",
+        "f3804c675fcc9442eb971dedaceaf0eac17d6eaec2e6ad9b1523bb45ecc60d54",
+        "89916815942ac75a74266e609d754da6bcddc47f6592ab3b7921389acf80650a",
+        "dab76770fb04586bc10fe4461594c2d79bf8a2c61f411eeec7ff331fea6d4e5e",
+        "ed4ae23f7a8a06e98148573ac28fc7195769cab7e284328346bf7ef8c490d6c3",
+        "bbe224ada1b3c934c16884374d612c1b81aa3e1a5a5383609bbcc917d5c81b13",
+        "499c04b22fc8594a9c5768c620436f1b55b27bc0fa631c9a5713793252c01d33",
+        "5ed79b3c3526acc02a0e6f13857f34126a59685b2b4816429e21552d40d9feca",
+        "f1e0ea4c688c53d2c697a77ab4567134109ebb71381be099ae7ac852b699c221",
+        "7e789c323076223367b16516926ee7ff3f5b37beda35ee32261441422e192f06",
+        "f36428b6d91360c6f11435b8ee86cc35e7a5fc8109b93d3253557dc64d93471e",
+        "25c1b3097ae6f31077d81da592c928d2bf677d1c1258d8c661033c9dd5dd8ac8",
+        "49295e55a8f34256b86e41df3bb1a02d7116975759259ae2d23243561b8589bd",
+        "dee4c7e7a7bb08336a2fd654d26f76e68a2634d4d1bdd17b791f6ba00761c269",
+        "740c8164c607357975f08d9efb1762aea35d7067df6e395de319256990ca6f49",
+        "408b5aead0dc3c342650974d66b052f3dded7dcbbb5e11dbfffae4432b74ebe2",
+        "99d19de9bf864eae459e5b5e0fa4739664e734919c98e18de15a9e87550e6d2c",
+        "0ce007c0aa6f017132177a0f811a2cb3f0a2c99423c288c344e508874aa3c71e",
+        "76d5859e9a817caa5126341704c7d702b0f35505043bb4c0346a80fb5c88ceb0",
+        "d262f2d59bec1b387f54abdcd155caff127b3f381bc86919e06fda89aabd00d2",
+        "c0ca9f747a16db4f211ce9f7658651b40baef0a374f29289186f520de71f231e",
+        "a89b57e618243cdf997ec339e9f16ab133924ed2df6266e8b64b309a47b9dd51",
+        "1bb1f606a4feb297c040176a9b1cdbc02fa4acdf8d057d5a2a2021f45489069d",
+        "b73009b6de80480661cf9c7495f8081984c63014bebe24c6b56f9012c8988316",
+        "16c2b1ff968dbea716e6c65663f24cc5d160ed392bf72505af4c5fd3cc6ab337",
+        "2748f040622d89703623e0ed308175a85885593346358e7d27c4f6d76acf4ff7",
+        "053140107c77a9030844bfec674300fdb38b7cbbf801116d3950a8e9583e7f45",
+        "3b76db859d284d5d7446522d7bb0fd24a9525fbe02f73879b521730434eac6cc",
+        "f95781a720461a0d48a343fb5f0bda67b87ae71d75eb5969f294dd3b5a4ab0ff",
+        "6085886c0c6b43fb32cea8d646428cc37786f7e718d6540e7985f783301eaf70",
+        "84cf52086f0102df70cea8fbfcb87d8bc503963f70d53b3cf6ccb796bd44778b",
+        "3a6dba6b7f0d500c3c938de53a9eb779a2424ff1c24c8cfe963c940e23ff4645",
+        "1b1e93b324a34812d3e6fb95e07d7c78e2b2bd99201f3a6af903204ed344a29a",
+        "d15151b9d7138668edc86baacdd28a61e38a0e26894032b2739fda9c63dca303",
+        "ac42069be4f11d30025f67ac106db70637a7c67bfbaa3a47651a6be423f5ab12"
+      ],
+      "chunk_ids": [],
+      "order_index": 8,
+      "summary": "Statistical Bulletin Statistical Bulletin Month/Year | General | Food | Non - Food July EFY2009 - July EFY2010 | 14.4 | 13.4 | 15.9..."
+    },
+    {
+      "node_id": "88cf74b53d5f5b3dca4ffd0a5a21dae5e280b32dd5fa5c16f3c4e1607d8d6630",
+      "title": "MONTHLY NEWS RELEASE",
+      "section_path": [
+        "MONTHLY NEWS RELEASE"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        201.65,
+        676.4664561283852,
+        402.92155999999994,
+        691.8516400000001
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "1c90ad26f42d4489eb72783944f0f778fe31608f180ea151c4ec9772cf173826"
+      ],
+      "chunk_ids": [],
+      "order_index": 9,
+      "summary": "MONTHLY NEWS RELEASE"
+    },
+    {
+      "node_id": "1fc197bf3365cf3ccc99c9d1ba7cd915a275fc5471ef81a2fcc82aeb386ce3e9",
+      "title": "INFLATION REPORT ON JULY, EFY 2017",
+      "section_path": [
+        "INFLATION REPORT ON JULY, EFY 2017"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        155.66,
+        625.0763598395185,
+        452.70176000000015,
+        662.93164
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "8e5981b9cbbe67587d35c7863fa3d4561215300460c30b40f03688de454500db",
+        "c5c1b64c9cca285df1254734393296f125bae5a338a9d92e54a70a7f3e8ea741"
+      ],
+      "chunk_ids": [],
+      "order_index": 10,
+      "summary": "INFLATION REPORT ON JULY, EFY 2017 Issue No. 25/2017"
+    },
+    {
+      "node_id": "b317e1ade8448ec689fa6779071df98bd3532001fceb37ee99e91ac6c4879de2",
+      "title": "1 Summary",
+      "section_path": [
+        "1 Summary"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        161.86426498688385,
+        431.96635983951853,
+        577.9814914120001,
+        612.4183599999999
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "edb2d0076a9bcdbad2f165dce1514cbdc304cf6b2d80fa8eca87b95e50ebaef6",
+        "7911e9e83d138b004063584d53f6f417d2a0144baeb72795f8e7dbd6590d4a93",
+        "eadb3156da9ee244cb3394b1688e83076984d9274055fe47f5066cdb3dde81c1",
+        "52a0668e53ac6c0bbe71be01d79ac46b3baa7928abd9413f4b0cf6a8deb651ee"
+      ],
+      "chunk_ids": [],
+      "order_index": 11,
+      "summary": "1. Summary The Consumer Price Index (CPI), a key economic statistics, is surveyed, analyzed, and made available to data users on a monthly basis...."
+    },
+    {
+      "node_id": "a06cef97d3282f7e9058d3c10e6ef1cb80a8dd8dc271da10329b00399eb39288",
+      "title": "2 Food & Non -alcoholic Beverages and Non -Food Inflation (Year -on -Year)",
+      "section_path": [
+        "2 Food & Non -alcoholic Beverages and Non -Food Inflation (Year -on -Year)"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 1,
+      "bbox": [
+        158.18,
+        51.157190839694636,
+        579.5848000000001,
+        632.75764
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "0d527128a2bca40ba1ae50142334d1a06e1396429aded06cb39963c2d51b71f1",
+        "934248901a0cf8bc0357e508424611eea5b1f3859d55197fc15016c751d06a2f",
+        "ffe18ee74208bddb8d1733f19ad85b7eab20ebaf7d38d554a0541a37e685d005",
+        "3c3d423ecff7722c22a93d2baeeeffa1bb50b34286ade875065fd6957e69bcd9",
+        "e0563c5b01ad04037a0ae648d26402f1a308140e19c6ae70da031875297a3b15",
+        "5ecb44bc9c0b11bab061f020c0d043e698d89a9bffd5eea40fb99b4fc284a260"
+      ],
+      "chunk_ids": [],
+      "order_index": 12,
+      "summary": "2. Food & Non -alcoholic Beverages and Non -Food Inflation (Year -on -Year) The year -on -year inflation and the month -to -month inflation..."
+    },
+    {
+      "node_id": "800d929e2efb4dec427267f58a0f3f3ff9c9f707d162ef6b95e8348d72adce6e",
+      "title": "Page 1",
+      "section_path": [
+        "Page 1"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 1,
+      "end_page": 2,
+      "bbox": [
+        50.28,
+        51.157190839694636,
+        566.9700799999997,
+        654.50236
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "c75db83c6e47506ed48c684016ace995852c1db07d0cfc80a9406ac5b388e258",
+        "68bd5ec94772c87fe3732a2fff9f4ff15eb5af48e6ec1d94f5527fad9726de74",
+        "211ae419a6a48d639bececc9cba47e653c117439cdbed63ecd5e60eede40241d",
+        "888807c250d4d69f1f5994cc6b74bdbd1daf56fb30ce2596ba62d816902907c9",
+        "a2dfa44b01c2b121e7fa83aecac39370fc79389621f4aebab9197b0e1f5316c5"
+      ],
+      "chunk_ids": [],
+      "order_index": 13,
+      "summary": "Page 1 Issue No. 25/2017 Page 2 Beginning from July -EFY 2016 the magnitude of the inflation rate steadily declined overtime. In July EFY..."
+    },
+    {
+      "node_id": "3a82307a0d8ed22045ffef5dc1ab039a58dec2224e24c23fc77c8d108d887e00",
+      "title": "Month -to -Month Inflation Rate",
+      "section_path": [
+        "Month -to -Month Inflation Rate"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 5,
+      "end_page": 5,
+      "bbox": [
+        43.8,
+        51.157190839694636,
+        568.6416400000002,
+        648.17164
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "b56cb56dfad2fd940176c442d5b12ef44c606b33105bced5d8074e67402b1a8e",
+        "076725ce711cadf15dc742dfd38841cf011f6acce565061ef48c14f434478b8e",
+        "cce8a8aa21718728cc6afc9c40012f9d56714be0c143f8d4fee531697d262612",
+        "14e1bfeaffd9f71ff132c59bd392b66fc32eee62996784320b0c9abda5bfb63f",
+        "b5322d07bade00e738327ee1cb83741963c28b9c933990473e06cc8493a67101"
+      ],
+      "chunk_ids": [],
+      "order_index": 14,
+      "summary": "Month -to -Month Inflation Rate The month -to -month general inflation rate for July EFY2017 has increased by 1.3 percent compared to what was..."
+    },
+    {
+      "node_id": "98d5597ac28a0ef662906fef4d4745e19381a4a1dfd150ecbc8e42e112645560",
+      "title": "4 Annual Inflation trend",
+      "section_path": [
+        "4 Annual Inflation trend"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 10,
+      "end_page": 10,
+      "bbox": [
+        50.88,
+        51.157190839694636,
+        562.5323200000004,
+        633.475
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "e24f433c6a7483e37f0fce6c8e734ae5e54a1e36d28d13b50b7f74795c5a1ddc",
+        "004c3c26feb17f39f0ea924034e938a7f16501d56e8410a1e37b78c61993bf41",
+        "49e17739c26f75394ee5128d71a74abffcd876dfc5aee051dede4ab213176743",
+        "d0e1626233cc4818981c4538b74de19cc905d11e6fe44d5a99dd85b6958c72ea",
+        "a7a5bd3c051983c9c739a8010cbd3a8800bef100eeccea5a182bc3d52fb6947e"
+      ],
+      "chunk_ids": [],
+      "order_index": 15,
+      "summary": "4. Annual Inflation trend Relatively low and reduction in inflation rate was observed between 2005 and 2009. Since EFY2010 inflation rate stick to double..."
+    },
+    {
+      "node_id": "e9eb089cae863c391a52c5ec6af1072a231ff486fea6238aeed64d88d4797ec3",
+      "title": "Page 10",
+      "section_path": [
+        "Page 10"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 10,
+      "end_page": 10,
+      "bbox": [
+        518.02,
+        646.5160787944026,
+        561.58888,
+        655.10236
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "f3e95ebb8633f9c60b4fe4ddce42d2071b8cc88aa5b8ec9d71ccc15a10fa93d0"
+      ],
+      "chunk_ids": [],
+      "order_index": 16,
+      "summary": "Page 10"
+    },
+    {
+      "node_id": "42ddd77364cbdfc6dc7138536ecf3e64c5518b2fdd82c898883ea217e14d2367",
+      "title": "Enquiries",
+      "section_path": [
+        "Enquiries"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 13,
+      "end_page": 13,
+      "bbox": [
+        80.184,
+        619.7352407221664,
+        142.359,
+        634.1949999999999
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "7116bb5f175ceaba57699d634c9803cc9dc09eaa20bb74111cbdefc284c63f50"
+      ],
+      "chunk_ids": [],
+      "order_index": 17,
+      "summary": "Enquiries"
+    },
+    {
+      "node_id": "a30bd0379ddc3603b3794115af2eb29d6bd80bf23ab87285e9cf1975e6a528a3",
+      "title": "Telephone number +251 111 568464",
+      "section_path": [
+        "Telephone number +251 111 568464"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 13,
+      "end_page": 13,
+      "bbox": [
+        75.624,
+        551.5601925777331,
+        177.468,
+        577.648
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "5481375f78ffd08d6ad4150a3581820662094468190a384855918203156cc7e4"
+      ],
+      "chunk_ids": [],
+      "order_index": 18,
+      "summary": "Telephone number +251 111 568464"
+    },
+    {
+      "node_id": "52cc36f73f91b8cbbbfbfbb05da7e8edea3a23aa0817d449f1aa23c62e84d642",
+      "title": "Email: alemteferig@gmail.com alemayehu.teferi@ess.gov.et",
+      "section_path": [
+        "Email: alemteferig@gmail.com alemayehu.teferi@ess.gov.et"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 13,
+      "end_page": 13,
+      "bbox": [
+        52.92,
+        469.71897717151455,
+        206.45,
+        520.20136
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "9cf806946118e51acf596c0173319486351fd43716fc922ea458e88b649b6a9c",
+        "565721bc388ed1316338a1152f3bc800f1516b80e3762f4e6e061b720d287628"
+      ],
+      "chunk_ids": [],
+      "order_index": 19,
+      "summary": "Email: alemteferig@gmail.com alemayehu.teferi@ess.gov.et Postal address : 1143"
+    },
+    {
+      "node_id": "136de81052fb317f563dc3420ab6024cba49ea17757d298a61064f1350143e46",
+      "title": "You can visit us on the Website at: http://www.ess.gov.et/",
+      "section_path": [
+        "You can visit us on the Website at: http://www.ess.gov.et/"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 13,
+      "end_page": 13,
+      "bbox": [
+        46.56,
+        338.4003790972919,
+        219.46188000000006,
+        369.31844
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "dfc2b42004e0cac714db890cd4962d1f788ee2de341eae144e6682289b24f2d5"
+      ],
+      "chunk_ids": [],
+      "order_index": 20,
+      "summary": "You can visit us on the Website at: http://www.ess.gov.et/"
+    },
+    {
+      "node_id": "96921c9fd1b1a500894a7437c08ffcf646983912f3aac3cec3ff02a111fd7026",
+      "title": "5 GLOSSARY",
+      "section_path": [
+        "5 GLOSSARY"
+      ],
+      "parent_id": "47c77a5d3d8f8c17a8b4008fe344985374669a5fdd446e0655ca50f6430f1d47",
+      "depth": 1,
+      "start_page": 13,
+      "end_page": 13,
+      "bbox": [
+        248.93,
+        51.157190839694636,
+        558.4720000000001,
+        654.50236
+      ],
+      "child_ids": [],
+      "ldu_ids": [
+        "c7474b7e882f94ff0ccea0821e0f910150500ca0620059cb2f5e44cf975ad8ba",
+        "877527826fbcccda4f47c4249ff2c6dcd600778974ff1e2420a106e998b0b44f",
+        "d6d5a18471db0b6f0c215814be09d81bf10dfbdb6e4f4adb24fdae7cef2ec9af",
+        "4baec83c17c0b16724482e5b6aa803c558c430280b46cc5f5828e1bf63614225",
+        "fce57d7bc8249e11c084aa34b4bac4d62c1a3aad628ec879dc1e68477bf4c8f5",
+        "5a23e991cfaa9ecf18379ef18113de7f534ffe09bf15fd84fb3b512d638b7eda",
+        "b46750c59202ea1bd4c7e155e33e5c92df42f5efc9cb88c1101c4de654955f71",
+        "970053e8dc65ebb8eaa8700a1d7ee15bd8d45ad81e12bd7bb8dab46003d7fd14",
+        "227c25bb19622204e81c289a220f7ed819a7438d9e8c0dad36b431b013e5fcad"
+      ],
+      "chunk_ids": [],
+      "order_index": 21,
+      "summary": "5. GLOSSARY General Inflation: The highest level of aggregation of inflation which covers all the items within the scope of the inflation. Food Inflation:..."
+    }
+  ]
+}

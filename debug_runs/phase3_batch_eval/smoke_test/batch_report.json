@@ -1,0 +1,16 @@
+[
+  {
+    "file_path": "D:\\TRP-1\\Week-3\\document-refinery\\data\\ETS_Annual_Report_2024_2025.pdf",
+    "doc_id": "afbc8da8449c",
+    "success": false,
+    "failure_reason": "1 validation error for LDU\nbbox\n  Value error, bbox coordinates must be non-negative [type=value_error, input_value=(-3.05e-05, 662.1084534, 596.4825358, 843.0777088), input_type=tuple]\n    For further information visit https://errors.pydantic.dev/2.12/v/value_error",
+    "page_count": 94,
+    "ldu_count": 0,
+    "chunk_count": 0,
+    "pageindex_node_count": 0,
+    "summaries_generated": false,
+    "vector_ingestion_succeeded": false,
+    "retrieval_evaluation_succeeded": false,
+    "artifacts_dir": "D:\\TRP-1\\Week-3\\document-refinery\\debug_runs\\phase3_batch_eval\\smoke_test\\ETS_Annual_Report_2024_2025"
+  }
+]

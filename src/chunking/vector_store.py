@@ -79,10 +79,12 @@ class ChromaVectorStore:
         client: ChromaClientProtocol | None = None,
         collection: ChromaCollectionProtocol | None = None,
         persist_directory: str | Path = ".refinery/chroma",
+        max_upsert_batch_size: int = 5000,
     ) -> None:
         self.embedding_backend = embedding_backend
         self.collection_name = collection_name
         self.persist_directory = Path(persist_directory)
+        self.max_upsert_batch_size = max(1, max_upsert_batch_size)
         self._collection = collection or self._create_collection(client=client)
 
     def ingest_ldus(self, ldus: list[LDU]) -> None:
@@ -146,42 +148,48 @@ class ChromaVectorStore:
     ) -> None:
         if len(ids) != len(texts) or len(texts) != len(embeddings) or len(embeddings) != len(metadatas):
             raise VectorStoreError("Vector-store upsert payload lengths must match")
-        self._collection.upsert(
-            ids=ids,
-            documents=texts,
-            embeddings=embeddings,
-            metadatas=metadatas,
-        )
+        for start in range(0, len(ids), self.max_upsert_batch_size):
+            end = start + self.max_upsert_batch_size
+            self._collection.upsert(
+                ids=ids[start:end],
+                documents=texts[start:end],
+                embeddings=embeddings[start:end],
+                metadatas=metadatas[start:end],
+            )
 
     def _ldu_metadata(self, ldu: LDU) -> dict[str, Any]:
-        return {
+        metadata = {
             "record_type": "ldu",
             "doc_id": ldu.doc_id,
             "page_number": ldu.page_number,
             "start_page": ldu.page_number,
             "end_page": ldu.page_number,
-            "section_path": list(ldu.section_path),
             "section_path_str": self._section_path_string(ldu.section_path),
             "chunk_id": None,
             "ldu_ids": [self._require_id(ldu.ldu_id, "LDU")],
             "content_hash": ldu.content_hash,
             "content_hashes": [ldu.content_hash],
         }
+        if ldu.section_path:
+            metadata["section_path"] = list(ldu.section_path)
+        return metadata
 
     def _chunk_metadata(self, chunk: Chunk) -> dict[str, Any]:
-        return {
+        metadata = {
             "record_type": "chunk",
             "doc_id": chunk.doc_id,
             "page_number": chunk.page_number,
             "start_page": chunk.page_number,
             "end_page": chunk.page_number,
-            "section_path": list(chunk.section_path),
             "section_path_str": self._section_path_string(chunk.section_path),
             "chunk_id": self._require_id(chunk.chunk_id, "Chunk"),
             "ldu_ids": list(chunk.ldu_ids),
             "content_hash": chunk.content_hash,
             "content_hashes": [chunk.content_hash],
         }
+        if chunk.section_path:
+            metadata["section_path"] = list(chunk.section_path)
+        return metadata
 
     def _build_where(
         self,

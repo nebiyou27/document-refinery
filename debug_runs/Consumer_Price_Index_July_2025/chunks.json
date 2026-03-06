@@ -1,0 +1,1642 @@
+[
+  {
+    "chunk_id": "822c25d1fc3367801f424367f658d08ccbaca9addb733591aacbc73cc8f8ec70",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      38.88,
+      508.37402531594785,
+      116.91504,
+      581.098
+    ],
+    "section_path": [
+      "Content"
+    ],
+    "ldu_ids": [
+      "b6275feb9dabddb09326a6c89d80ff1c67ce8f6fcaebdd7bf45aaaabebaa8ca8",
+      "e9747fe32ee2ab43d7bee163ad516c7e499fa696b59603f1bf138aa591f9cf35"
+    ],
+    "text": "Content\n\nSummary",
+    "content_hash": "0548fbd239fe454124452f66eed6c65b4536e41fbbe03acfaf40520aafba338c",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 0
+  },
+  {
+    "chunk_id": "9bd380d839b371e5d94a34ac756de31ef4e035e6d3ba6a02fe5ae01a4b4df9b4",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      38.88,
+      455.1701925777332,
+      147.93600000000004,
+      495.538
+    ],
+    "section_path": [
+      "Year -on -Year General, Food & Non -food Infla-"
+    ],
+    "ldu_ids": [
+      "b731687c77a3c3f88217b0e442a88707ec1d89aa1f0e865337d158a128a6d154"
+    ],
+    "text": "Year -on -Year General, Food & Non -food Infla-",
+    "content_hash": "c42598a85db1f48c71ba4aa1654d99ff98cc83ea690de2406429f71d31b4faa8",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 1
+  },
+  {
+    "chunk_id": "bc573bc6493fc10019f3b2f2bab8003a8da72e94554fa2651c65d78351d6f993",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      38.88,
+      386.5301925777332,
+      145.17600000000002,
+      441.298
+    ],
+    "section_path": [
+      "Month -on -Month General, Food & Non -food Inflation"
+    ],
+    "ldu_ids": [
+      "9946f5bc99d6578b441ded42cabebd152d797abc1c0c2ada25e10bc490443b81"
+    ],
+    "text": "Month -on -Month General, Food & Non -food Inflation",
+    "content_hash": "4478fb84bc7e9d2a1312ed61eda1d7b80a07d15fda2b1803d0105d0e9ef74112",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 2
+  },
+  {
+    "chunk_id": "4ebf5d1c0b5dbe0c4aa0a94e97f04c170c271fca1d2c32f1546e14b067cbf7a9",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      38.88,
+      327.4989771715145,
+      146.68219200000004,
+      377.900776
+    ],
+    "section_path": [
+      "12 -Month Moving Average General, Food and Non -food Inflation"
+    ],
+    "ldu_ids": [
+      "746a6d240b4ea1821e7b06a04bb65a88c03aed55812bb131208e2e893cd2425e"
+    ],
+    "text": "12 -Month Moving Average General, Food and Non -food Inflation",
+    "content_hash": "1a29232702849414b9b22312608c6c034d1f7b95722a3e362e72d5075f32bbcf",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 3
+  },
+  {
+    "chunk_id": "a015921dc0572f2af66f6ac80f28f89ac3d38dec3dc27163cabd28c39038b57b",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      38.88,
+      283.11402531594786,
+      137.38536,
+      313.44836
+    ],
+    "section_path": [
+      "Annual Inflation trend"
+    ],
+    "ldu_ids": [
+      "826f48dab96b3d56c94552d5c3fb805b5d6c7b5d11e183e6c843387b3d287fce"
+    ],
+    "text": "Annual Inflation trend",
+    "content_hash": "4da89d45e520791790265f439859eaf580fc2a584a6ac61fdcb26aafd9ed7775",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 4
+  },
+  {
+    "chunk_id": "5a7b420986110c5fbc93047f21e9dbd90a70b5b8e9d548478b3eac4f1d686f8a",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      38.88,
+      242.0740253159479,
+      115.48296,
+      255.60835999999995
+    ],
+    "section_path": [
+      "Glossary"
+    ],
+    "ldu_ids": [
+      "2e928bfd538777eaace8b1b0ab4d0c0b2d80063dc2e0e969c609cd519184cc6c"
+    ],
+    "text": "Glossary",
+    "content_hash": "060db4d8ca46515942b53954f1019ebafd0e91d97a1c22d472f63973106b15d6",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 5
+  },
+  {
+    "chunk_id": "ce1ec7e50dc35a0d25f865830635853dc2e8ede4fa051752f55c9f731a80cc77",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "e1d4a09af26de7676919d609962ad2d046d1e5795821b04e3fe600ba19b14e0e"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 6
+  },
+  {
+    "chunk_id": "10364dbdde373e7b431a8c5c54ec4d18ed148450af3fe980caddd5b4bf32d28a",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      233.45,
+      710.4865692517552,
+      378.5251760000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "1272382dbfc317560e0bb980f87005f2516daf857f1ef33ef11f6a4d0309fb78"
+    ],
+    "text": "Statistical Bulletin",
+    "content_hash": "17e2f15a30dd3807ab51108e71d682f6653ccc2c0088ed58c6dc484aac6c62e1",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 7
+  },
+  {
+    "chunk_id": "e87b2291bdb42308f4b716e3d42ac1709ba32ddd4f738f5e453d0acecdfadc46",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      201.65,
+      676.4664561283852,
+      402.92155999999994,
+      691.8516400000001
+    ],
+    "section_path": [
+      "MONTHLY NEWS RELEASE"
+    ],
+    "ldu_ids": [
+      "1c90ad26f42d4489eb72783944f0f778fe31608f180ea151c4ec9772cf173826"
+    ],
+    "text": "MONTHLY NEWS RELEASE",
+    "content_hash": "0c9af928fb805f349e3026e652ae6c2fc3000da68d3d7484941a69e78964f528",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 8
+  },
+  {
+    "chunk_id": "0a590d8e729251f7e4b61d58d8d15252e9bf0aab87703a4f3084c27cf6a91506",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      155.66,
+      625.0763598395185,
+      452.70176000000015,
+      662.93164
+    ],
+    "section_path": [
+      "INFLATION REPORT ON JULY, EFY 2017"
+    ],
+    "ldu_ids": [
+      "8e5981b9cbbe67587d35c7863fa3d4561215300460c30b40f03688de454500db",
+      "c5c1b64c9cca285df1254734393296f125bae5a338a9d92e54a70a7f3e8ea741"
+    ],
+    "text": "INFLATION REPORT ON JULY, EFY 2017\n\nIssue No. 25/2017",
+    "content_hash": "792e77507e6982153e9e2d9b405efa4cd730a037f513d90455ed45ae5e8421cc",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 9
+  },
+  {
+    "chunk_id": "d798b63c49b32a18eb15294fd6baf9217e0e64b4080365b3829d898d54d67bb2",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      161.86426498688385,
+      431.96635983951853,
+      577.9814914120001,
+      612.4183599999999
+    ],
+    "section_path": [
+      "1 Summary"
+    ],
+    "ldu_ids": [
+      "edb2d0076a9bcdbad2f165dce1514cbdc304cf6b2d80fa8eca87b95e50ebaef6",
+      "7911e9e83d138b004063584d53f6f417d2a0144baeb72795f8e7dbd6590d4a93",
+      "eadb3156da9ee244cb3394b1688e83076984d9274055fe47f5066cdb3dde81c1",
+      "52a0668e53ac6c0bbe71be01d79ac46b3baa7928abd9413f4b0cf6a8deb651ee"
+    ],
+    "text": "1. Summary\n\nThe  Consumer  Price  Index  (CPI),  a  key  economic  statistics,  is  surveyed,  analyzed,  and made available to data users on a monthly basis.\n\nThe year -on -year, general inflation rate (annual percentage change) in the country stood at 13.7 percent for the month of July EFY2017. A year earlier (in July EFY2016), the rate was 18.6 percent. The month -on -month general inflation rate increased by 1.3 percent for the month of July -EFY2017. It was 1.5 percent in July EFY2016.\n\nGeneral inflation encompasses of two main divisions and twenty -one groups of expenditures.  These  divisions  registered  the  following  price  changes  during  the  month  of  July EFY2017 compared with July EFY2016.",
+    "content_hash": "6871782c7ef8a444e6eef2a90f23f23765647567ea3ae36a7ab21431acf7b6bb",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 10
+  },
+  {
+    "chunk_id": "ae24c4350722175b2dcf60b0b5be57f9e30cc3a93ab760011022e3de97c0eca2",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      158.18,
+      282.73897717151453,
+      575.4547600000002,
+      410.76135999999997
+    ],
+    "section_path": [
+      "2 Food & Non -alcoholic Beverages and Non -Food Inflation (Year -on -Year)"
+    ],
+    "ldu_ids": [
+      "0d527128a2bca40ba1ae50142334d1a06e1396429aded06cb39963c2d51b71f1",
+      "934248901a0cf8bc0357e508424611eea5b1f3859d55197fc15016c751d06a2f",
+      "ffe18ee74208bddb8d1733f19ad85b7eab20ebaf7d38d554a0541a37e685d005"
+    ],
+    "text": "2. Food & Non -alcoholic Beverages and Non -Food Inflation (Year -on -Year)\n\nThe year -on -year inflation and the month -to -month inflation rates helps to gauge the current inflation trajectory, as they capture short -term fluctuations in prices and provides an immediate indicator of inflationary pressures. Particularly, the month -to -month is also crucial  for  monitoring  changes  in  consumer  prices  and  identifying  any  sudden  spikes  or  declines in inflation.\n\nFood & Non -alcoholic Beverages index",
+    "content_hash": "63912501106c21f85b50cf8721df11b66c1db236050cf2be461968014816ccbf",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 11
+  },
+  {
+    "chunk_id": "61ac084c61ac8fca915cb44d94144785c06dfd3083d12eb77d0658e6d803bb5f",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      158.18,
+      51.157190839694636,
+      579.5848000000001,
+      632.75764
+    ],
+    "section_path": [
+      "2 Food & Non -alcoholic Beverages and Non -Food Inflation (Year -on -Year)"
+    ],
+    "ldu_ids": [
+      "3c3d423ecff7722c22a93d2baeeeffa1bb50b34286ade875065fd6957e69bcd9",
+      "e0563c5b01ad04037a0ae648d26402f1a308140e19c6ae70da031875297a3b15",
+      "5ecb44bc9c0b11bab061f020c0d043e698d89a9bffd5eea40fb99b4fc284a260"
+    ],
+    "text": "The year -on -year  inflation  rate,  also  known  as  the  annual  inflation  rate,  measures  the  percentage change in overall price levels from one year to the same month in the previous year. Accordingly, the year -on -year inflation rate of the Food and Non -alcoholic component of the CPI, for the month of July 2017 EFY stood at 12.1%. This implies that the CPI of Food and Non -Alcoholic  Beverages  has,  on  average,  increased  by  12.1%  compared  to  July  EFY2016.  The major contributing factors for  the  rise  of  food  inflation  for  July  EFY2017  was  the  observed increase in the average prices of major food commodities such as bread and cereals ( -1.9%), vegetables (18.7%), meat (12.1%), Sugar, jam, honey & chocolate (16.9%),  Milk, Cheese and Eggs  (11.4%), Oils and Fats (25.1%), Fruit (14.6%),  and Food products n.e.c (19.4%).\n\nwww.ess.gov.et\n\nJuly EFY2017",
+    "content_hash": "b1124c74e907be7c64d33dad026f5fb8b4daf3cae808ef297938cafb503202a3",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 12
+  },
+  {
+    "chunk_id": "a58483def0221d7e7bb0244e299737ee1b5d7a1dfd5e31bbb481a27432051327",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 1,
+    "bbox": [
+      524.14,
+      623.5960787944025,
+      561.58888,
+      632.1823599999999
+    ],
+    "section_path": [
+      "Page 1"
+    ],
+    "ldu_ids": [
+      "c75db83c6e47506ed48c684016ace995852c1db07d0cfc80a9406ac5b388e258"
+    ],
+    "text": "Page 1",
+    "content_hash": "4ec36d7ffe0deaa50ea4f82ce3cfb3a5f8c0c611406e516d1095a371ae8ec33e",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 13
+  },
+  {
+    "chunk_id": "eb5cd148719d9411a4c328268a7afd354ac4c4c398db353455486932474bf3a4",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 2,
+    "bbox": [
+      50.28,
+      51.157190839694636,
+      566.9700799999997,
+      654.50236
+    ],
+    "section_path": [
+      "Page 1"
+    ],
+    "ldu_ids": [
+      "68bd5ec94772c87fe3732a2fff9f4ff15eb5af48e6ec1d94f5527fad9726de74",
+      "211ae419a6a48d639bececc9cba47e653c117439cdbed63ecd5e60eede40241d",
+      "888807c250d4d69f1f5994cc6b74bdbd1daf56fb30ce2596ba62d816902907c9",
+      "a2dfa44b01c2b121e7fa83aecac39370fc79389621f4aebab9197b0e1f5316c5"
+    ],
+    "text": "Issue No. 25/2017\n\nPage 2\n\nBeginning from July -EFY 2016 the magnitude of the inflation rate steadily declined overtime. In July EFY -2017 General inflation was 13.7% as compared to the one observed in July -EFY2016.\n\nwww.ess.gov.et",
+    "content_hash": "f32c546d9045f79ad6144bc381886e9ae3cd3c98b44f095ec6b9e60434b7f7d8",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 14
+  },
+  {
+    "chunk_id": "38d4e23d6ae56917402065b3c285ca8df8c55880b2c31ff6d5584ba78ab6e088",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 2,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "39fa0989d293cf43954dfac2b21ef36be71b9cd3c6b672a041962908a57ce0d1"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 15
+  },
+  {
+    "chunk_id": "8ca3acf7211583ff2a90db688b0f5f9a0fbc3761102152c20616b84b5d74f2ef",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 2,
+    "bbox": [
+      233.45,
+      710.4865692517552,
+      378.5251760000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "125502ac42851ab5ef38344a230ef8a38c90f16046107c7a99726cf0d586831c"
+    ],
+    "text": "Statistical Bulletin",
+    "content_hash": "17e2f15a30dd3807ab51108e71d682f6653ccc2c0088ed58c6dc484aac6c62e1",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 16
+  },
+  {
+    "chunk_id": "bc67fcb1401f85004ae0909351634d3e4c3089988512e7979d58b7e9c9132d5c",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 2,
+    "bbox": [
+      43.707279205322266,
+      67.61480712890625,
+      573.1679077148438,
+      571.487060546875
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "fee40085de9e1591b7e13048833cac09305a3c9fd2f166574ad129e2308812f0"
+    ],
+    "text": "Month/Year | General | Food | Non - Food\nJuly EFY2009 - July EFY2010 | 14.4 | 13.4 | 15.9\nTable 1: General, Food July EFY 2010 - JulyEFY2011 | Inflation Rate 12.6 | Year) July 13.1 | July EFY201 7 11.9\nJuly EFY2011 - July EFY2012 | 19.9 | 23.3 | 15.9\nJuly EFY2012 - July EFY2013 | 20.2 | 23.2 | 16.4\nJuly EFY2013 - July EFY2014 | 33.8 | 40.3 | 25.2\nJuly EFY2014 - July EFY2015 | 32.5 | 31.7 | 33.9\nJuly EFY2015 - July EFY2016 | 26.6 | 28.1 | 24.3\nJuly EFY2016 - July EFY2017 | 16.0 | 16.2 | 15.8\nJuly - EFY 2016 | 18.6 | 20.6 | 15.7\nAugust | 17.2 | 18.8 | 14.7\nSeptember | 17.5 | 19.6 | 14.4\nOctober | 16.1 | 19.2 | 11.6\nNovember | 16.9 | 18.5 | 14.5\nDecember | 17.0 | 18.7 | 14.4\nJanuary | 15.5 | 15.8 | 15.0\nFebruary | 15.0 | 14.6 | 15.6\nMarch | 13.5 | 11.7 | 16.2\nApril | 14.4 | 12.2 | 17.9\nMay | 14.4 | 12.1 | 17.8\nJune | 13.9 | 11.7 | 17.3\nJuly - EFY 2017 | 13.7 | 12.1 | 16.1",
+    "content_hash": "9fdfb2cddfc94bf425de236eac5fdbdc92038ba75c88908c7d388f63df7971aa",
+    "metadata": {
+      "kinds": [
+        "table"
+      ]
+    },
+    "sequence_number": 17
+  },
+  {
+    "chunk_id": "fe6ee4255e093c1c630145270dbcbb9a1f093c9e19f60fb24915c43b4c9ab2c6",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 3,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "00d7d1befab27ceadc1dbd6364bd83273a3f782399b66614a81b48b4dc628cd4"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 18
+  },
+  {
+    "chunk_id": "0a8cfa604c764131e98df986d3edcffc24c16a686f22e15e895c57cf20778f9a",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 3,
+    "bbox": [
+      233.45,
+      51.157190839694636,
+      558.4720000000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "e5e92afa8709302f8b63e36473d16f4c59bfbd54220835fc6d6f876e967a3f74",
+      "980147b76ea1d4212a7d766c2a21b24d822a42b1d7678e5c4ac27b04ed640ccf",
+      "245e51d84a429276db943e8cb9088096495de889083575d089b2c52624d51db6"
+    ],
+    "text": "Statistical Bulletin\n\nMar\n\nwww.ess.gov.et",
+    "content_hash": "835c441ff411e53e233442a0dfa9cc34cc041731ed89200b5e82249d8a5fc521",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 19
+  },
+  {
+    "chunk_id": "12b491478b9fab07426c4303014c0edce6b8c918d56c7cba6be47bcb7fae07d7",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 4,
+    "bbox": [
+      48.96,
+      393.7217608,
+      547.18,
+      647.4223599999999
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "8cf01b69b040c788e373ab167a1b6fc265075f990efc12a43db7e2bbe2e85f24",
+      "cf7a931ca9d0daca7804a1cc33c791e6307d2b012e638a99d5e0756adab4be35",
+      "8e51b081e114d9d12186f22bcac815200f87d2c3545461d7cbad0b6e910ab4e6",
+      "274a26defb3607ba9692a161b294c2e48b5d5648d93a1b13cc06e1ad0558fc53"
+    ],
+    "text": "Issue No. 25/2017\n\nMajor sub divisions in the food and non -food commodities (year -on -Year).\n\nWhen we look at major division of food and non -food commodities, which holds large share in the commodity  basket,  the  magnitude  of  Food  and  Non -alcoholic  beverages  inflation  rate  at  July EFY2017 showed 12.1% as compared to the same month in the previous year.  From Food and Non -Alcoholic Beverage aspect, the highest weight is hoed by Bread and Cereals, Vegetables, Other -Food products, Non -Alcoholic Beverage, and Meat; whose inflation at July EFY2017 is recorded  an increase for Bread & Cereals ( -1.3%); Vegetables (18.0%); Other -Food products (Food products not elsewhere classified) (19.4%); Meat (12.1%) and Non -Alcoholic Beverages & coffee (52.3%).\n\nSimilarly, during July 2017 EFY the year -on -year inflation rate of the major Non -Food items of Housing, Water, Electricity, Gas, & Other Fuels (14.3%) ; Restaurants and Hotels (16.7%) ; Alcoholic Beverages & Tobacco (10.7%) ; Furnishings, Household Equipment & Routine Household Maintenance of the House (14.0%) and Clothing and Footwear (16.1%).",
+    "content_hash": "5a714af5b1028e4d002f665f1d308b1d6322e0320b51c81434935651015aead6",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 20
+  },
+  {
+    "chunk_id": "d1a987ae2f77d910f09f0372bb9464e179debb0b69726d83aa2107c48282021f",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 4,
+    "bbox": [
+      91.824,
+      51.157190839694636,
+      558.4720000000001,
+      379.460776
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "979d9e7a535994103c97166582312ea25f54300cbd6cf7caa67bd0a43bda9aef",
+      "668d796dfeaf383ab8f3389eac4c110cb618dfb99f6ad1dd8bc3e4925f9caeb7"
+    ],
+    "text": "Table 2. Major sub divisions in the food and non -food commodities (year -on -Year).\n\nwww.ess.gov.et",
+    "content_hash": "3f8829a8825210ddcbb802d6bea087defcd143f55530a492366048b9c0f48dca",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 21
+  },
+  {
+    "chunk_id": "718f9fee4fcbae7ab9cb2446b8c280d5478ca024f8b0a65335d0628c74d47ea2",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 4,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "9765d022bd5b3e0c39725cdb7d136aafc0a4eeea10cd88a60ba6a9c6801859c2"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 22
+  },
+  {
+    "chunk_id": "576dffba332c4caf31ec8dc6a3b6ae11b722bf584b08daaef054a6d69fc85fb8",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 4,
+    "bbox": [
+      233.45,
+      639.5560787944025,
+      550.90888,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "3a1a22d4d2e68cfd88ba09ab67a304a29bece87f37c38ca77074ed0617f66b71",
+      "e93ed5e79217386ef42fc7688786bd86969bd2fa1bdf79fd66ac6b9dedc999a4"
+    ],
+    "text": "Statistical Bulletin\n\nPage 4",
+    "content_hash": "b8e0543a0e053ae8fc44a279ad62f6c75a385a1298d2f08d097ed89751581e28",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 23
+  },
+  {
+    "chunk_id": "a3da8f3d1593d615f2a3c9bf98353bad7c88349b91a4b081f5ff05c61545ec1c",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 4,
+    "bbox": [
+      41.8735466003418,
+      73.69287109375,
+      556.1909790039062,
+      361.2835998535156
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "f07c6b4ffcb32586b07a066dd7a2c512580f1edb2099a2aba4add29a2178aecc"
+    ],
+    "text": "CPI Items | Items Wight in CPI (%) | %change on Year - on - Year Inflation July EFY2016 com- pared with July EFY2017 | %change in Month - to - Month inflation June EFY2017 compared to July EFY2017\nMajor Food and Non - Alcoholic Bever- age components | 53.5 | 12.1 | 1.7\nBread and Cereals | 17.1 | - 1.3 | 0.7\nVegetables | 12.3 | 18.0 | 1.3\nOther - Food products | 5.6 | 19.4 | 1.8\nNon - Alcoholic Beverage | 5.1 | 52.3 | 6.8\nMeat | 4.1 | 12.1 | 2.4\nMajor Non - Food Components | 46.5 | 16.1 | 0.7\nHousing, Water, Electricity, Gas and Other Fuels | 16.8 | 14.3 | - 0.2\nClothing and Footwear | 5.7 | 16.1 | 1.1\nRestaurants and Hotels | 5.3 | 16.7 | 0.0\nAlcoholic Beverages and Tobacco | 4.9 | 10.7 | 1.8\nFurnishings, Household Equipment and Routine Maintenance of the House | 4.7 | 14.0 | 1.0",
+    "content_hash": "a86bd77fb8c86670ff76c9056ada5af869bf9ac2ca2d0a02d9f427dc1aca61f5",
+    "metadata": {
+      "kinds": [
+        "table"
+      ]
+    },
+    "sequence_number": 24
+  },
+  {
+    "chunk_id": "0a8fc5c5a723595c7c5037bdf3c6762a4be3575c5de174257d423a99142e01f0",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 5,
+    "bbox": [
+      45.0,
+      663.6760787944025,
+      142.82888,
+      672.26236
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "347e73b9f3e7a2c968ed579bf592954267a091f39f1ce98f8d0327c29ce825e3"
+    ],
+    "text": "Issue No. 25/2017",
+    "content_hash": "2e92dc79e5e63ac7780ebd0ab605fd9775332a1597db00c6913efe25fbc9187d",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 25
+  },
+  {
+    "chunk_id": "b96664d9c93ee03d0ac67eb62e4cd673a231d346181519218d1cc514ae90ff14",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 5,
+    "bbox": [
+      43.8,
+      51.157190839694636,
+      568.6416400000002,
+      648.17164
+    ],
+    "section_path": [
+      "Month -to -Month Inflation Rate"
+    ],
+    "ldu_ids": [
+      "b56cb56dfad2fd940176c442d5b12ef44c606b33105bced5d8074e67402b1a8e",
+      "076725ce711cadf15dc742dfd38841cf011f6acce565061ef48c14f434478b8e",
+      "cce8a8aa21718728cc6afc9c40012f9d56714be0c143f8d4fee531697d262612",
+      "14e1bfeaffd9f71ff132c59bd392b66fc32eee62996784320b0c9abda5bfb63f",
+      "b5322d07bade00e738327ee1cb83741963c28b9c933990473e06cc8493a67101"
+    ],
+    "text": "Month -to -Month Inflation Rate\n\nThe month -to -month general inflation rate for July EFY2017 has increased by 1.3 percent compared to what was observed last month. During the same month, the food and non -alcoholic component of the inflation increased by at 1.7 percent whereas the non -food component for its part increased by 0.7 percent.\n\nTable 3: General Inflation Rate (%, Month -to -Month), June EFY2016 -July EFY2017\n\nMonth -to -Month Inflation of Food and Non -Food categories: In July EFY2017, among the food components of the CPI, Meat increased by (2.4%), Fish and sea food increased by (1.5%), Milk, Cheese and Eggs increased by (2.4%), Oils and Fats increased by (1.2%),  Food products n.e.c increased by (1.8%),   Non -Alcoholic beverages and coffee increased by (6.8%) on the month to month basis.\n\nwww.ess.gov.et",
+    "content_hash": "b7c01a71a3802cd74118ba6b05e790a30d360ef295c767ae4eacd42e02f0783d",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 26
+  },
+  {
+    "chunk_id": "0b8781743e5e03adce36a89081acecac2cf3e438c89292523653f00e5da03929",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 5,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "f2bf52239935f5d026e03caf738bfcde7f25f5c772475ea76b5012c56a669b18"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 27
+  },
+  {
+    "chunk_id": "97ef8961665c00f4f944000536438aef654faba729d52ce461b2eaf473b0251c",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 5,
+    "bbox": [
+      233.45,
+      664.2760787944026,
+      569.14888,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "be2246b925b6719ceacd1600497acf89662c7bf673bf774d9917330c310a1507",
+      "5ca3f8cae1d31b5356bb9dd5c76393c4178589e40c9bd7c7c8701bb2b9442b5b"
+    ],
+    "text": "Statistical Bulletin\n\nPage 5",
+    "content_hash": "435e15c70d3b69498bce7a7a8950618bba9deb948589dabf1b3d66adbd45adad",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 28
+  },
+  {
+    "chunk_id": "f60d0d7e4153c613d298f4f07555e52bcb5314b06ab5255528e925869aec071b",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 5,
+    "bbox": [
+      86.56134033203125,
+      318.3179626464844,
+      488.2867736816406,
+      527.8409729003906
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "cd1b79c56a08f90fb6cd7af7b31c8efba69fa3e700d776a5613316769d3b090f"
+    ],
+    "text": "Month | General month-to-month inflation\nJuly - EFY 2016 | 1.5\nAugust | 1.2\nSeptember | 2.4\nOctober | 0.9\nNovember | - 0.8\nDecember | 0.8\nJanuary | 0.6\nFebruary | 0.5\nMarch | 2.7\nApril | 0.1\nMay | 0.2\nJune | 0.5\nJuly - EFY 2017 | 1.3",
+    "content_hash": "2dce3c181dd5560182026d8ad40ce96d24705937b261dec81f6f0a48866841ed",
+    "metadata": {
+      "kinds": [
+        "table"
+      ]
+    },
+    "sequence_number": 29
+  },
+  {
+    "chunk_id": "9dd44a9fd9279efbf48ac676614c5a0a10f5172b8e973a7ad00ba11d1b469fea",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 6,
+    "bbox": [
+      46.8,
+      51.157190839694636,
+      558.4720000000001,
+      654.50236
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "aa5a4c29a2458967009fcdaea9b9d6bc6a4e30b3f68fabc4a6f08d14e0aa94ab",
+      "7c53da83942c3474e2da4081a5fdb4967f53cc74abc2dd2d66fcf3cc80285e6a",
+      "b1fbde4ca4c7647907257cd924823076dab2658c3221c4a69e8c9d27e987fb62",
+      "d5daa1423da1d9d9219107eda56a5362dbfe50d6f92b2fb81b681a12706075ff",
+      "5078bde231d30b7d683feee4a9eadda1e539c9147a88d6b5e92f21a0ab7b0605"
+    ],
+    "text": "Issue No. 25/2017\n\nPage 6\n\nLooking at non -food items, the month -to -month comparison was observed for Alcoholic beverages and tobacco increased by (1.8%), Clothing and Footwear decreased by (1.1%), Furniture, Furnishing, household equipment and routine maintenance of the house  increased by (1.0%), Housing, water, Electricity, gas and other fuels decreased by ( -0.2%), Transport increased by (1.9%), Recreation and culture increased by (1.3%), and Hotel and Restaurants (0.0%), Health increased by (0.1%), Communication increased by (2.3%), and Miscellaneous Goods and Services increased by (1.8%) during the month.\n\nFig 2: Food and Non -Food Inflation (%, Month -to -Month), June EFY2017 -July EFY2017\n\nwww.ess.gov.et",
+    "content_hash": "3390ffe033b64829242f3b5d6d260cc81cde36865584f422556300eea1568a73",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 30
+  },
+  {
+    "chunk_id": "59cfe1a3eb0ae0ee25cd01d7528802666653e60953695491415fbfb721e974eb",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 6,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "03f1b8a3227720689dfa9d179d3b5e391514bdda241a3a62004f95cea5f3d027"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 31
+  },
+  {
+    "chunk_id": "3f198bcb2044a28d037a64939b9a6771b712b7894793222e7114398ee1ad8e57",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 6,
+    "bbox": [
+      233.45,
+      710.4865692517552,
+      378.5251760000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "cd9b619481b19b8e539cd8fd5cf59aa548f235dacd34c9c5daa2c073a09b494d"
+    ],
+    "text": "Statistical Bulletin",
+    "content_hash": "17e2f15a30dd3807ab51108e71d682f6653ccc2c0088ed58c6dc484aac6c62e1",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 32
+  },
+  {
+    "chunk_id": "47c75dfde85a95c37039f866e6c27a4e3328624b8de52fc01dcabd2c788218a9",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 7,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "0245e838dff290275599309bacde705d7e983e8a225f78b1b7339c25531e6eb1"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 33
+  },
+  {
+    "chunk_id": "095127c4c030238216cb76586fe1721d8d3695c4e6332b02a2598c56726cab12",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 7,
+    "bbox": [
+      56.52,
+      51.157190839694636,
+      559.66888,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "b614d3216b71d983289d15b33a2f8b2235dd15e88e5b570e1783048938b61d17",
+      "80068a787f317e26d6805f08550b425e6ddc6931294e1b717a952f867180dccf",
+      "2864e5b0c85842ddc59e8c9fff3ee62b248b6d5a419282d3484e7826a5bb4e51",
+      "d98fd6c8905b132f119155510b267abff0152b93cf321904e14b583ea7995b64",
+      "249962779081fe56626cb9bff2e6dd544f01e293c564a26526d43027eda00265",
+      "2729d65d7e1be63870d1abfb4fe7cad8bdeb81c2aab2a5bc53f04c19f8049b26"
+    ],
+    "text": "Statistical Bulletin\n\nPage 7\n\n3:  12 -Month Moving Average General, Food and Non -food Inflation\n\nThe 12 -month moving average figures provides a broader perspective on inflation trends over a longer period. As it  is  indicated  in  Table  below  the  country  level  overall  inflation  rate  (annual  change  based  on 12  months Moving Average) was 15.6 percent in July EFY2017 as compared to the one observed in a similar period a year ago. Since EFY2016 inflation has been relatively eased in the country.\n\nTable 4. Overall CPI and 12 -month moving average Overall Inflation rate July  EEFY2017\n\nwww.ess.gov.et",
+    "content_hash": "0008657d2d939a6a9ebe6b33ded5fe25a1d352b79e9e60948028da18bee1aed9",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 34
+  },
+  {
+    "chunk_id": "57956702df047211fd397065c574745b9fe3d9798bb6044c34f5ac96420e43de",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 7,
+    "bbox": [
+      68.98311614990234,
+      120.6251220703125,
+      548.8812255859375,
+      457.8553161621094
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "a6b4c99a7950627b163740be437f0c1175b0e470f5f24490b2ea5ac3528427c0"
+    ],
+    "text": "Month | 12 Months moving Average Overall CPI | 12 - Month Moving Average overall Inflation\nJuly | 433.2 | 25.6\nAugust | 438.9 | 24.7\nSeptember | 444.9 | 23.8\nOctober | 451.5 | 22.9\nNovember | 457.5 | 22.0\nDecember | 463.4 | 21.0\nJanuary | 469.0 | 19.9\nFebruary | 474.4 | 18.9\nMarch | 479.5 | 17.9\nApril | 484.9 | 17.1\nMay | 490.3 | 16.5\nJune | 495.6 | 16.0\nJuly - EFY2017 | 500.9 | 15.6",
+    "content_hash": "4c31fbc8eae69e0f24c60a9b6ca4731110527e582b1fd4597c70ac4d54f81829",
+    "metadata": {
+      "kinds": [
+        "table"
+      ]
+    },
+    "sequence_number": 35
+  },
+  {
+    "chunk_id": "f6488e9de795381449adb48b201abf473d0967e2eac777300990b8fbf9b85ba3",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 8,
+    "bbox": [
+      45.84,
+      51.157190839694636,
+      559.66888,
+      654.50236
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "244e0157cef0119bea28cefaaaf6c73f47ebabc24fc3f520d0a62dc9824a2e38",
+      "f3804c675fcc9442eb971dedaceaf0eac17d6eaec2e6ad9b1523bb45ecc60d54",
+      "89916815942ac75a74266e609d754da6bcddc47f6592ab3b7921389acf80650a",
+      "dab76770fb04586bc10fe4461594c2d79bf8a2c61f411eeec7ff331fea6d4e5e",
+      "ed4ae23f7a8a06e98148573ac28fc7195769cab7e284328346bf7ef8c490d6c3",
+      "bbe224ada1b3c934c16884374d612c1b81aa3e1a5a5383609bbcc917d5c81b13"
+    ],
+    "text": "Issue No. 25/2017\n\nPage 8\n\n12 -month moving average Food and Non -Food Inflation rate (July EFY2016 -July EFY2017)\n\nDis -aggregated, 12 -month moving average food inflation increased by 15.5 percent as compared to the one observed a year ago and non -food inflation rate increased by 15.8 percent in July EFY2017 as compared to the one observed in July EFY2016.\n\nTable 5: 12 -month moving average Food and Non -Food Inflation rate (July EFY2016 -July  EFY2017) Baseline: Dec, EFY2009= 100\n\nwww.ess.gov.et",
+    "content_hash": "19a3f43dcc57173558ed90a2615737ba3da5f9c783019375cbdbf92dff97ff95",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 36
+  },
+  {
+    "chunk_id": "d46e6520ce624e106a486f635d090cda68ddd03c17e49b505151b584c36606a0",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 8,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "d3330261eff2d5a4ad72c95e4d0d5942bc57ca14f19c6567c2871f2f65ef21bf"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 37
+  },
+  {
+    "chunk_id": "58543c9c4badc4fe5dc66bc0f9af6c0069ecb2fc55f41fd77c297b01fc271a5a",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 8,
+    "bbox": [
+      233.45,
+      710.4865692517552,
+      378.5251760000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "499c04b22fc8594a9c5768c620436f1b55b27bc0fa631c9a5713793252c01d33"
+    ],
+    "text": "Statistical Bulletin",
+    "content_hash": "17e2f15a30dd3807ab51108e71d682f6653ccc2c0088ed58c6dc484aac6c62e1",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 38
+  },
+  {
+    "chunk_id": "8cb1f4ca35aecdad40e1a4f32a26af9508f0af9316dbe99e1df66ee6abebb710",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 8,
+    "bbox": [
+      39.937400817871094,
+      154.79656982421875,
+      548.0193481445312,
+      466.6702575683594
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "5ed79b3c3526acc02a0e6f13857f34126a59685b2b4816429e21552d40d9feca"
+    ],
+    "text": "Month | 12 - month moving average Food Inflation | 12 - month moving average Non - Food Inflation\nJuly - EFY2017 | 27.5 | 23.0\nAugust | 26.7 | 21.7\nSeptember | 26.1 | 20.4\nOctober | 25.1 | 19.0\nNovember | 24.4 | 18.4\nDecember | 23.5 | 17.5\nJanuary | 22.1 | 16.7\nFebruary | 20.8 | 16.1\nMarch | 19.3 | 15.7\nApril | 18.1 | 15.7\nMay | 17.0 | 15.7\nJune | 16.2 | 15.8\nJuly - EFY2017 | 15.5 | 15.8",
+    "content_hash": "ef6c93a10ce0b7ce46657528022e66bdac643acadb11edd19096e7b7f70c7edb",
+    "metadata": {
+      "kinds": [
+        "table"
+      ]
+    },
+    "sequence_number": 39
+  },
+  {
+    "chunk_id": "05c235453d3f36f56ff6bf4cf0b14d5afe7a884b23d80c18121f6123cb788cab",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 9,
+    "bbox": [
+      57.6,
+      444.7281954790097,
+      556.8734400000001,
+      654.50236
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "f1e0ea4c688c53d2c697a77ab4567134109ebb71381be099ae7ac852b699c221",
+      "7e789c323076223367b16516926ee7ff3f5b37beda35ee32261441422e192f06",
+      "f36428b6d91360c6f11435b8ee86cc35e7a5fc8109b93d3253557dc64d93471e",
+      "25c1b3097ae6f31077d81da592c928d2bf677d1c1258d8c661033c9dd5dd8ac8",
+      "49295e55a8f34256b86e41df3bb1a02d7116975759259ae2d23243561b8589bd",
+      "dee4c7e7a7bb08336a2fd654d26f76e68a2634d4d1bdd17b791f6ba00761c269",
+      "740c8164c607357975f08d9efb1762aea35d7067df6e395de319256990ca6f49"
+    ],
+    "text": "Issue No. 25/2017\n\nRecent Improvements in  CPI  Price survey\n\nThe monthly consumer price data collection first started in Addis Ababa in 1963 (1955 E.C).  The consumer price survey which started in the capital city helped to prepare Consumer Price Index (CPI) for the city of Addis Ababa which was used as\n\nan indicator of national price movement for long time periods. Starting from December 2000 GC CPI coverage expanded to 9\n\nregions  and  2  city  administrations.  Through  this  approach  a  number  of  zones  were  first  selected  and  in  each  zone  two\n\nWoredas were selected. From the 2 Woredas a list of 8 markets were prepared and ranked by size (population), importance of the market, wide variety of goods sold and, use of the market by both urban and rural households. From each zone two\n\nurban markets were selected for price data collection. However, these 120 markets selected  25 years ago and become less representative given the fast growth in regional towns and cities in terms of population, economic activities, and the creation",
+    "content_hash": "d3ee0990663562ee4857528e82074aacbac1bcf17c7280e7366a0ce637a058b5",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 40
+  },
+  {
+    "chunk_id": "6fa0ac79ad8275cc26a6919594ca3e0548c80ea190e79b5920532a2456b93131",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 9,
+    "bbox": [
+      65.544,
+      220.03031216361683,
+      557.488,
+      408.74068
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "408b5aead0dc3c342650974d66b052f3dded7dcbbb5e11dbfffae4432b74ebe2",
+      "99d19de9bf864eae459e5b5e0fa4739664e734919c98e18de15a9e87550e6d2c",
+      "0ce007c0aa6f017132177a0f811a2cb3f0a2c99423c288c344e508874aa3c71e",
+      "76d5859e9a817caa5126341704c7d702b0f35505043bb4c0346a80fb5c88ceb0",
+      "d262f2d59bec1b387f54abdcd155caff127b3f381bc86919e06fda89aabd00d2",
+      "c0ca9f747a16db4f211ce9f7658651b40baef0a374f29289186f520de71f231e"
+    ],
+    "text": "of new administrative structures. Furthermore, complaints were raised by stakeholders from time to time that the CPI cover- age has been limited to 120 urban markets for a quarter of a century in-spite of big structural and economic changes in the\n\ncountry.\n\nThis led the Ethiopian Statistics Service to review data collection sample markets that are representative following a consistent ap- proach applied to select the existing 120 markets.  This exercise led to the selection of  80 new markets. This makes a total of 200\n\nmarkets (120 old markets and 80 new markets) for price survey. To see what effect the new market selection could have on the CPI\n\nseries, Pilot Surveys were conducted in the newly selected 80 markets starting from July 2024. In the subsequent piloting exercises conducted for one year CPI results showed negligible differences between 120 markets and the combined 200 markets.\n\nThis exercise was a milestone for the next CPI re-basing which is planned for December 2025=100 using the weights to be derived from 2017EFY National Integrated Household Survey.  Furthermore, these 80 new markets are important in order to include the",
+    "content_hash": "afb80bc4d12bf4c634449a0f482a396cdb16d5229d623caf025b99b9e8a80429",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 41
+  },
+  {
+    "chunk_id": "3d3ff5bc9177c5ddd29dbc5d92fb3d6565bcec011eed37ddcb209e5c0d078b65",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 9,
+    "bbox": [
+      65.544,
+      134.71819547900964,
+      557.482,
+      185.99900000000002
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "a89b57e618243cdf997ec339e9f16ab133924ed2df6266e8b64b309a47b9dd51",
+      "1bb1f606a4feb297c040176a9b1cdbc02fa4acdf8d057d5a2a2021f45489069d"
+    ],
+    "text": "four newly emerged regional sates of Sidama, South, South West and Central Ethiopia for the future CPI compilation. Accordingly, the ESS has decided to do the price data collection and CPI production using the combined 200 markets(120 old+80 new) starting\n\nfrom May 2025.",
+    "content_hash": "82ff2c273234036298deb56134ab4bf836b2a5ac18e871c98fdbd6332bfb7588",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 42
+  },
+  {
+    "chunk_id": "23c2fa546a48f22fcf1248a60d69959b80870ff8251e501bd0164f0b78aadfa3",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 9,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "0bf73accd32c2605e487f4f10ab6d49009a4416cda0b9d9b148bb53422f4af37"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 43
+  },
+  {
+    "chunk_id": "a807ea51c8bd226b1c0b5ad320270aeac7306037b575508c702b97ae8eb10fdd",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 9,
+    "bbox": [
+      233.45,
+      51.157190839694636,
+      559.66888,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "b73009b6de80480661cf9c7495f8081984c63014bebe24c6b56f9012c8988316",
+      "16c2b1ff968dbea716e6c65663f24cc5d160ed392bf72505af4c5fd3cc6ab337",
+      "2748f040622d89703623e0ed308175a85885593346358e7d27c4f6d76acf4ff7"
+    ],
+    "text": "Statistical Bulletin\n\nPage 9\n\nwww.ess.gov.et",
+    "content_hash": "ecffd6fdd6990e3767cc758a1a51d7249d86780f5d78ca8d4798dbd278f72673",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 44
+  },
+  {
+    "chunk_id": "8df50f7d998f2b3f0af60e414be96d88448b4e53057ed24d82c07aafb114a51b",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 10,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "d0f97dedeba3b1a5350e5ee9366f65f647730bc9c815ca3d2ed461f980e5d04e"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 45
+  },
+  {
+    "chunk_id": "4d687544857b22165b06e09e80dc34b1ab7e6ec48e4e46f9192f2e9362d5fbb8",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 10,
+    "bbox": [
+      50.88,
+      649.0360787944026,
+      378.5251760000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "053140107c77a9030844bfec674300fdb38b7cbbf801116d3950a8e9583e7f45",
+      "3b76db859d284d5d7446522d7bb0fd24a9525fbe02f73879b521730434eac6cc"
+    ],
+    "text": "Statistical Bulletin\n\nIssue No. 25/2017",
+    "content_hash": "26ab49cd043179a10022f5ef0f79357fd5366c1de667b2f4f659a1d6845ef33b",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 46
+  },
+  {
+    "chunk_id": "2f2d02cd8eabbc044def95d08d457d3139b018c7183be2298f086346eded350f",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 10,
+    "bbox": [
+      50.88,
+      51.157190839694636,
+      562.5323200000004,
+      633.475
+    ],
+    "section_path": [
+      "4 Annual Inflation trend"
+    ],
+    "ldu_ids": [
+      "e24f433c6a7483e37f0fce6c8e734ae5e54a1e36d28d13b50b7f74795c5a1ddc",
+      "004c3c26feb17f39f0ea924034e938a7f16501d56e8410a1e37b78c61993bf41",
+      "49e17739c26f75394ee5128d71a74abffcd876dfc5aee051dede4ab213176743",
+      "d0e1626233cc4818981c4538b74de19cc905d11e6fe44d5a99dd85b6958c72ea",
+      "a7a5bd3c051983c9c739a8010cbd3a8800bef100eeccea5a182bc3d52fb6947e"
+    ],
+    "text": "4. Annual Inflation trend\n\nRelatively  low  and  reduction  in  inflation  rate  was  observed  between  2005  and  2009.  Since EFY2010 inflation rate stick to double digit.\n\nFig 3: Average Annual General inflation in Ethiopia since Ethiopian EFY2005 (Year -on -Year)\n\nThe average annual general inflation rate for the country stood at (16.0 %) in EFY2017 compared to (26.6 %) in EFY2016. The past three years were unfavorable for the households, due to high inflation in the country. Specially, in the year EFY2014 and EFY2015, the inflation rate has been over 30 percent for most months. Internal and external factors forced the inflation to be at higher level; COVID19, internal conflict, and Russia -Ukraine War were the major factors.\n\nwww.ess.gov.et",
+    "content_hash": "36e9113ad3b62c63fbcf38d090108eb0869db3537cd124f98f41f27733d43c8e",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 47
+  },
+  {
+    "chunk_id": "7388ca8063355fbf250a2513bf37ae4289fc9fc8c84883c3f52e007e3956ef6d",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 10,
+    "bbox": [
+      518.02,
+      646.5160787944026,
+      561.58888,
+      655.10236
+    ],
+    "section_path": [
+      "Page 10"
+    ],
+    "ldu_ids": [
+      "f3e95ebb8633f9c60b4fe4ddce42d2071b8cc88aa5b8ec9d71ccc15a10fa93d0"
+    ],
+    "text": "Page 10",
+    "content_hash": "13654c55773576d13f6c16bc01a774fe2a7a2daba8f060e5668329b9f6944728",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 48
+  },
+  {
+    "chunk_id": "fc7654c5e680fee87d604e693f635c7ec00c1e6656c1eabc48acd889b79d048f",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 11,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "0d98e776f46f39b7d09cad8511a5f31f06d6aad2da35e9023470f1a8afd378fb"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 49
+  },
+  {
+    "chunk_id": "0c402ac5f8d1b322be3e3ccbdb50c2665bdb09655249169474ecea222472c6e6",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 11,
+    "bbox": [
+      233.45,
+      51.157190839694636,
+      558.4720000000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "f95781a720461a0d48a343fb5f0bda67b87ae71d75eb5969f294dd3b5a4ab0ff",
+      "6085886c0c6b43fb32cea8d646428cc37786f7e718d6540e7985f783301eaf70"
+    ],
+    "text": "Statistical Bulletin\n\nwww.ess.gov.et",
+    "content_hash": "f005d2b4051d835f70d4958356c6056ecc52ddd63bf7bdde59f2085805e50f63",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 50
+  },
+  {
+    "chunk_id": "e9254646d3ac8ebef3b06c6668a11604882f7761ce871bf8412ddc46b314b526",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 12,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "4c08ae162cd722784c772c2ec69715f4b26fcc1bcc04350538d9526a4acba12e"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 51
+  },
+  {
+    "chunk_id": "e661b970e5fff8f449276f012a5c5b55573f750dd9162936dd6c1b75beb8d153",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 12,
+    "bbox": [
+      52.8,
+      51.157190839694636,
+      561.6740800000002,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "84cf52086f0102df70cea8fbfcb87d8bc503963f70d53b3cf6ccb796bd44778b",
+      "3a6dba6b7f0d500c3c938de53a9eb779a2424ff1c24c8cfe963c940e23ff4645",
+      "1b1e93b324a34812d3e6fb95e07d7c78e2b2bd99201f3a6af903204ed344a29a"
+    ],
+    "text": "Statistical Bulletin\n\nThe average annual non -food inflation rate for the country stood at (15.8 %) in EFY2017 compared to (24.3 %) in EFY2016. Non -food inflation movement, in the past ten year is divided into two. Between 2005 and 2009 non -food inflation showed reduction and since then the rate demonstrate increasing trend until 2015. This is could be attached to Birr devaluation against USD, Russia -Ukraine War, and increase of international price of gasoline, as most of non -food items are imported or utilize imported raw materials. Relative easing of the non -food inflation for EFY2016 and 2017 is observed as a result of\n\nwww.ess.gov.et",
+    "content_hash": "d517a6ff50e5db3c5a1a7cb6887cc0e46ab34625d064840ea8d29887a6ff2fb5",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 52
+  },
+  {
+    "chunk_id": "a0520c6a59e16792e39c3d9561b1d64c53641b98f92dc5dcbc71aff55a30b9cb",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 13,
+    "bbox": [
+      80.184,
+      619.7352407221664,
+      142.359,
+      634.1949999999999
+    ],
+    "section_path": [
+      "Enquiries"
+    ],
+    "ldu_ids": [
+      "7116bb5f175ceaba57699d634c9803cc9dc09eaa20bb74111cbdefc284c63f50"
+    ],
+    "text": "Enquiries",
+    "content_hash": "0d139f3f88b18942c1a11cd1e38d0fa433c0df47a046bcbb6109606ec6342758",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 53
+  },
+  {
+    "chunk_id": "726b79428172948f18a63095cc01420382dae0ced3a828948a9e83e7fd88717b",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 13,
+    "bbox": [
+      75.624,
+      551.5601925777331,
+      177.468,
+      577.648
+    ],
+    "section_path": [
+      "Telephone number +251 111 568464"
+    ],
+    "ldu_ids": [
+      "5481375f78ffd08d6ad4150a3581820662094468190a384855918203156cc7e4"
+    ],
+    "text": "Telephone number +251 111 568464",
+    "content_hash": "563c05433e76a8fe981a9a556439e3729921658dfd19426de3e11f6c0612affe",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 54
+  },
+  {
+    "chunk_id": "baaf717c0bf386f7143bd3585b7bf6c2dcda90290937c40e09406088ef97fb12",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 13,
+    "bbox": [
+      52.92,
+      469.71897717151455,
+      206.45,
+      520.20136
+    ],
+    "section_path": [
+      "Email: alemteferig@gmail.com alemayehu.teferi@ess.gov.et"
+    ],
+    "ldu_ids": [
+      "9cf806946118e51acf596c0173319486351fd43716fc922ea458e88b649b6a9c",
+      "565721bc388ed1316338a1152f3bc800f1516b80e3762f4e6e061b720d287628"
+    ],
+    "text": "Email: alemteferig@gmail.com alemayehu.teferi@ess.gov.et\n\nPostal address : 1143",
+    "content_hash": "9b46497f31a2308908e278477a58861e8d664f39fb44f7f30f724c41749539ab",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 55
+  },
+  {
+    "chunk_id": "9630bf5a060fd73e381877ca41e7d5677e0c8351a05fc777170044a9564c5439",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 13,
+    "bbox": [
+      46.56,
+      338.4003790972919,
+      219.46188000000006,
+      369.31844
+    ],
+    "section_path": [
+      "You can visit us on the Website at: http://www.ess.gov.et/"
+    ],
+    "ldu_ids": [
+      "dfc2b42004e0cac714db890cd4962d1f788ee2de341eae144e6682289b24f2d5"
+    ],
+    "text": "You can visit us on the Website at: http://www.ess.gov.et/",
+    "content_hash": "623f94a01aa3c400e946db24abed1bf65c80e83224d2137916f151c1bb0050c9",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 56
+  },
+  {
+    "chunk_id": "58c2706e56eb901fa245aeb7977c73524da4585b97d990ecd1e1b2812796fddc",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 13,
+    "bbox": [
+      162.38,
+      732.2102888665999,
+      449.48,
+      749.562
+    ],
+    "section_path": [
+      "ETHIOPIAN STATISTICAL SERVICE"
+    ],
+    "ldu_ids": [
+      "e640d67eb955bc4546d812ced971a5cff2f14daddc347e5e16f7f5b682395d55"
+    ],
+    "text": "ETHIOPIAN STATISTICAL SERVICE",
+    "content_hash": "bf621352a4d438ebf908f34539b20ab3f440d477d1b2b846930d7846e8b09ce5",
+    "metadata": {
+      "kinds": [
+        "text"
+      ]
+    },
+    "sequence_number": 57
+  },
+  {
+    "chunk_id": "0359c3ce4ee6d1f7bdc2d3b8a0a611de0e60b8f6593b26d13c818ffbf77dd9c1",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 13,
+    "bbox": [
+      224.45,
+      649.2760787944026,
+      378.5251760000001,
+      727.861416
+    ],
+    "section_path": [
+      "Statistical Bulletin"
+    ],
+    "ldu_ids": [
+      "d15151b9d7138668edc86baacdd28a61e38a0e26894032b2739fda9c63dca303",
+      "ac42069be4f11d30025f67ac106db70637a7c67bfbaa3a47651a6be423f5ab12"
+    ],
+    "text": "Statistical Bulletin\n\nIssue No. 25/2017",
+    "content_hash": "26ab49cd043179a10022f5ef0f79357fd5366c1de667b2f4f659a1d6845ef33b",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 58
+  },
+  {
+    "chunk_id": "e5d556136e5f5e529023040e9a348811227c20a4ab8bedf13c5999c1bd02d495",
+    "doc_id": "e2a5bc87d9f6",
+    "page_number": 13,
+    "bbox": [
+      248.93,
+      51.157190839694636,
+      558.4720000000001,
+      654.50236
+    ],
+    "section_path": [
+      "5 GLOSSARY"
+    ],
+    "ldu_ids": [
+      "c7474b7e882f94ff0ccea0821e0f910150500ca0620059cb2f5e44cf975ad8ba",
+      "877527826fbcccda4f47c4249ff2c6dcd600778974ff1e2420a106e998b0b44f",
+      "d6d5a18471db0b6f0c215814be09d81bf10dfbdb6e4f4adb24fdae7cef2ec9af",
+      "4baec83c17c0b16724482e5b6aa803c558c430280b46cc5f5828e1bf63614225",
+      "fce57d7bc8249e11c084aa34b4bac4d62c1a3aad628ec879dc1e68477bf4c8f5",
+      "5a23e991cfaa9ecf18379ef18113de7f534ffe09bf15fd84fb3b512d638b7eda",
+      "b46750c59202ea1bd4c7e155e33e5c92df42f5efc9cb88c1101c4de654955f71",
+      "970053e8dc65ebb8eaa8700a1d7ee15bd8d45ad81e12bd7bb8dab46003d7fd14",
+      "227c25bb19622204e81c289a220f7ed819a7438d9e8c0dad36b431b013e5fcad"
+    ],
+    "text": "5.  GLOSSARY\n\nGeneral Inflation: The highest level of aggregation of inflation which covers all the items within the scope of the inflation.\n\nFood  Inflation:  inflation  which  covers  all  food  items within the scope of the inflation.\n\nNon -food  Inflation:  inflation  which  covers  all  non -food items within the scope of the inflation.\n\nYear -on -Year  percentage  change:  The  Yearly  percentage change is the change in the index of the relevant  month  of  the  current  year  compared  with  the index  of  the  same  month  in  the  previous  year  expressed as a percentage.\n\nMonth -to -Month  percentage  change:  The  monthly percentage change is the change in the index of the relevant month compared with the index of the previous month expressed as a percentage.\n\nIndex  reference  period  (December  EFY2009=100): The period with which all other periods are compared (the  period  for  which  the  value  of  the  CPI  is  set  at 100).\n\nwww.ess.gov.et\n\nPage 13",
+    "content_hash": "dcf4d25764e7f0484e1049a341981ebd5ee8d8be73f434bdfc915273ab345f1a",
+    "metadata": {
+      "kinds": [
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text",
+        "text"
+      ]
+    },
+    "sequence_number": 59
+  }
+]

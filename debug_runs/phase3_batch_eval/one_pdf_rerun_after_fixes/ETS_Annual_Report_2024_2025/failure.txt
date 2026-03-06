@@ -1,0 +1,1 @@
+ValueError: Expected metadata list value for key 'section_path' to be non-empty in upsert.

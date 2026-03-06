@@ -1,0 +1,16 @@
+[
+  {
+    "file_path": "D:\\TRP-1\\Week-3\\document-refinery\\data\\ETS_Annual_Report_2024_2025.pdf",
+    "doc_id": "afbc8da8449c",
+    "success": true,
+    "failure_reason": null,
+    "page_count": 94,
+    "ldu_count": 19446,
+    "chunk_count": 304,
+    "pageindex_node_count": 4,
+    "summaries_generated": true,
+    "vector_ingestion_succeeded": true,
+    "retrieval_evaluation_succeeded": true,
+    "artifacts_dir": "D:\\TRP-1\\Week-3\\document-refinery\\debug_runs\\phase3_batch_eval\\one_pdf_rerun_after_vector_fix\\ETS_Annual_Report_2024_2025"
+  }
+]

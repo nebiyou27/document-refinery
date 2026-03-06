@@ -300,6 +300,33 @@ def _figure_caption(figure_payload: Any) -> str | None:
     return None
 
 
+def _table_rows_from_payload(table_payload: Any) -> list[list[str]]:
+    if isinstance(table_payload, list):
+        rows: list[list[str]] = []
+        for row in table_payload:
+            if isinstance(row, list):
+                rows.append([str(cell or "").strip() for cell in row])
+        return rows
+
+    if not isinstance(table_payload, dict):
+        return []
+
+    normalized_rows: list[list[str]] = []
+    columns = table_payload.get("columns")
+    if isinstance(columns, list):
+        header = [str(cell or "").strip() for cell in columns]
+        if any(header):
+            normalized_rows.append(header)
+
+    rows = table_payload.get("rows")
+    if isinstance(rows, list):
+        for row in rows:
+            if isinstance(row, list):
+                normalized_rows.append([str(cell or "").strip() for cell in row])
+
+    return normalized_rows
+
+
 def _compute_confidence(
     *,
     char_count: int,
@@ -526,7 +553,7 @@ def extract_pages_with_vision(
                                 bbox=(0.0, 0.0, page_width, page_height),
                                 content_hash=content_hash(json.dumps(tbl, sort_keys=True)),
                                 table_index=idx,
-                                rows=[],
+                                rows=_table_rows_from_payload(tbl),
                             )
                             for idx, tbl in enumerate(tables_payload)
                         ]

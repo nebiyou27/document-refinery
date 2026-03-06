@@ -16,16 +16,19 @@ from src.chunking import (
     ChunkingConfig,
     ChunkingEngine,
     EmbeddingBackend,
+    LabeledRetrievalQuery,
     OllamaSummaryBackend,
     PageIndexBuilder,
+    PageIndexMatch,
     PageIndexQueryEngine,
     PageIndexSummarizer,
+    RetrievalEvaluator,
     SummaryBackendError,
     SummaryInput,
     VectorStoreMatch,
 )
 from src.chunking.page_index import PageIndexTree
-from src.models.chunking import LDU, LDUKind
+from src.models.chunking import Chunk, LDU, LDUKind
 from src.models.extracted_document import (
     ExtractedDocument,
     ExtractedPage,
@@ -124,6 +127,7 @@ class FakeChromaCollection:
     def __init__(self) -> None:
         self.records: dict[str, dict[str, object]] = {}
         self.last_upsert: dict[str, object] | None = None
+        self.upserts: list[dict[str, object]] = []
         self.last_query: dict[str, object] | None = None
 
     def upsert(
@@ -140,6 +144,7 @@ class FakeChromaCollection:
             "embeddings": embeddings,
             "metadatas": metadatas,
         }
+        self.upserts.append(self.last_upsert)
         for index, record_id in enumerate(ids):
             self.records[record_id] = {
                 "id": record_id,
@@ -211,6 +216,40 @@ def _require_last_query(collection: FakeChromaCollection) -> dict[str, object]:
     return collection.last_query
 
 
+class FakeVectorRetrievalBackend:
+    def __init__(self, responses: dict[tuple[str, tuple[str, ...] | None], list[VectorStoreMatch]]) -> None:
+        self.responses = responses
+        self.calls: list[dict[str, object]] = []
+
+    def query(
+        self,
+        topic: str,
+        *,
+        top_k: int = 3,
+        section_path: tuple[str, ...] | None = None,
+        record_type: str | None = None,
+    ) -> list[VectorStoreMatch]:
+        self.calls.append(
+            {
+                "topic": topic,
+                "top_k": top_k,
+                "section_path": section_path,
+                "record_type": record_type,
+            }
+        )
+        return self.responses.get((topic, section_path), [])[:top_k]
+
+
+class FakePageIndexTraversalBackend:
+    def __init__(self, responses: dict[str, list[PageIndexMatch]]) -> None:
+        self.responses = responses
+        self.calls: list[dict[str, object]] = []
+
+    def query(self, tree: PageIndexTree, topic: str, top_k: int = 3) -> list[PageIndexMatch]:
+        self.calls.append({"tree": tree.doc_id, "topic": topic, "top_k": top_k})
+        return self.responses.get(topic, [])[:top_k]
+
+
 def test_ldu_content_hash_is_stable_and_page_agnostic() -> None:
     first = LDU(
         doc_id="doc123",
@@ -234,6 +273,45 @@ def test_ldu_content_hash_is_stable_and_page_agnostic() -> None:
     assert first.content_hash == ldu_content_hash("Revenue grew 25%", ("Financial Highlights",))
 
 
+def test_ldu_bbox_clamps_tiny_negative_float_noise_to_zero() -> None:
+    ldu = LDU(
+        doc_id="doc123",
+        page_number=1,
+        bbox=(-3.05e-05, 5.0, 10.0, 20.0),
+        kind=LDUKind.text,
+        text="Bounding boxes should survive float noise.",
+        section_path=("1 Overview",),
+    )
+
+    assert ldu.bbox == (0.0, 5.0, 10.0, 20.0)
+
+
+def test_ldu_bbox_rejects_materially_negative_coordinates() -> None:
+    with pytest.raises(ValueError, match="bbox coordinates must be non-negative"):
+        LDU(
+            doc_id="doc123",
+            page_number=1,
+            bbox=(-0.01, 5.0, 10.0, 20.0),
+            kind=LDUKind.text,
+            text="This bbox should still fail validation.",
+            section_path=("1 Overview",),
+        )
+
+
+def test_chunk_bbox_preserves_normal_valid_values() -> None:
+    chunk = Chunk(
+        doc_id="doc123",
+        page_number=1,
+        bbox=(1.5, 2.5, 10.0, 20.0),
+        section_path=("1 Overview",),
+        ldu_ids=["ldu-1"],
+        text="Valid bbox values should remain unchanged.",
+        sequence_number=0,
+    )
+
+    assert chunk.bbox == (1.5, 2.5, 10.0, 20.0)
+
+
 def test_chunk_validator_rejects_table_ldu_without_header_row() -> None:
     validator = ChunkValidator()
     invalid_table = LDU(
@@ -247,6 +325,57 @@ def test_chunk_validator_rejects_table_ldu_without_header_row() -> None:
 
     with pytest.raises(ChunkValidationError):
         validator.raise_for_issues(validator.validate_ldu(invalid_table))
+
+
+def test_chunking_engine_populates_table_header_metadata_from_extracted_rows() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 40, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 1},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 0.0, 50.0, 20.0),
+                content_hash="tb1",
+                table_index=0,
+                rows=[["", "Year", "Revenue"], ["2025", "100"]],
+            )
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert len(ldus) == 1
+    assert ldus[0].kind == LDUKind.table
+    assert ldus[0].metadata["header_row"] == ["Year", "Revenue"]
+    assert ldus[0].metadata["row_count"] == 2
+
+
+def test_chunking_engine_skips_whitespace_only_headerless_tables() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 0, "char_density": 0.0, "image_area_ratio": 0.0, "table_count": 1},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 0.0, 50.0, 20.0),
+                content_hash="tb-empty",
+                table_index=0,
+                rows=[["", ""], ["", ""]],
+            )
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert ldus == []
 
 
 def test_chunk_validator_rejects_figure_ldu_without_caption_metadata() -> None:
@@ -326,6 +455,156 @@ def test_chunking_engine_emits_deterministic_chunks_with_explicit_rules() -> Non
     assert first_run[2].metadata["kinds"] == ["figure"]
     assert [chunk.chunk_id for chunk in first_run] == [chunk.chunk_id for chunk in second_run]
     assert [chunk.content_hash for chunk in first_run] == [chunk.content_hash for chunk in second_run]
+
+
+def test_chunking_engine_skips_figure_blocks_without_caption() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 20, "char_density": 0.1, "image_area_ratio": 0.2, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="1 Overview",
+                bbox=(0.0, 0.0, 50.0, 16.0),
+                reading_order=0,
+                content_hash="t1",
+            )
+        ],
+        figure_blocks=[
+            FigureBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 20.0, 50.0, 60.0),
+                content_hash="fg1",
+                caption=None,
+            )
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert len(ldus) == 1
+    assert all(ldu.kind != LDUKind.figure for ldu in ldus)
+
+
+def test_chunking_engine_keeps_captioned_figure_blocks() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 20, "char_density": 0.1, "image_area_ratio": 0.2, "table_count": 0},
+        figure_blocks=[
+            FigureBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 20.0, 50.0, 60.0),
+                content_hash="fg1",
+                caption="Revenue trend chart",
+            )
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert len(ldus) == 1
+    assert ldus[0].kind == LDUKind.figure
+    assert ldus[0].metadata["caption"] == "Revenue trend chart"
+
+
+def test_chunking_engine_splits_oversized_text_ldu_into_multiple_chunks() -> None:
+    long_text = " ".join(f"token{i}" for i in range(120))
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": len(long_text), "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text=long_text,
+                bbox=(0.0, 0.0, 50.0, 20.0),
+                reading_order=0,
+                content_hash="t-long",
+            )
+        ],
+        page_content_hash="page1",
+    )
+
+    chunks = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=120)).build_chunks(_document_from_pages(page))
+
+    assert len(chunks) > 1
+    assert all(len(chunk.text) <= 120 for chunk in chunks)
+    assert all(chunk.metadata["split_from_oversized_ldu"] is True for chunk in chunks)
+    assert all(chunk.metadata["kinds"] == ["text"] for chunk in chunks)
+    assert all(chunk.ldu_ids == [chunks[0].ldu_ids[0]] for chunk in chunks)
+
+
+def test_chunking_engine_splits_oversized_table_ldu_into_multiple_chunks() -> None:
+    rows = [["Header", "Value"]]
+    rows.extend([[f"row-{index}", "x" * 40] for index in range(8)])
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 0, "char_density": 0.0, "image_area_ratio": 0.0, "table_count": 1},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 0.0, 50.0, 20.0),
+                content_hash="tb-big",
+                table_index=0,
+                rows=rows,
+            )
+        ],
+        page_content_hash="page1",
+    )
+
+    chunks = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=120)).build_chunks(_document_from_pages(page))
+
+    assert len(chunks) > 1
+    assert all(len(chunk.text) <= 120 for chunk in chunks)
+    assert all(chunk.metadata["split_from_oversized_ldu"] is True for chunk in chunks)
+    assert all(chunk.metadata["kinds"] == ["table"] for chunk in chunks)
+
+
+def test_chunking_engine_accounts_for_join_separator_in_chunk_limit() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 0, "char_density": 0.0, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="a" * 600,
+                bbox=(0.0, 0.0, 50.0, 10.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="b" * 599,
+                bbox=(0.0, 12.0, 50.0, 22.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    chunks = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=1200)).build_chunks(_document_from_pages(page))
+
+    assert len(chunks) == 2
+    assert all(len(chunk.text) <= 1200 for chunk in chunks)
 
 
 def test_section_path_inference_for_numbered_headings() -> None:
@@ -446,6 +725,162 @@ def test_section_context_is_inherited_when_body_blocks_have_no_heading() -> None
         ("2 Methods",),
         ("2 Methods",),
     ]
+
+
+def test_section_path_inference_suppresses_repeated_branding_across_pages() -> None:
+    pages = []
+    for page_number in (1, 2, 3):
+        pages.append(
+            ExtractedPage(
+                doc_id="doc123",
+                page_number=page_number,
+                metadata=_metadata(),
+                signals={"char_count": 80, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+                text_blocks=[
+                    TextBlock(
+                        doc_id="doc123",
+                        page_number=page_number,
+                        text="ETHIOPIAN STATISTICAL SERVICE",
+                        bbox=(0.0, 90.0, 80.0, 108.0),
+                        reading_order=0,
+                        content_hash=f"brand-{page_number}",
+                    ),
+                    TextBlock(
+                        doc_id="doc123",
+                        page_number=page_number,
+                        text=f"Body paragraph on page {page_number} with enough text to be content.",
+                        bbox=(0.0, 120.0, 120.0, 132.0),
+                        reading_order=1,
+                        content_hash=f"body-{page_number}",
+                    ),
+                ],
+                page_content_hash=f"page{page_number}",
+            )
+        )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(*pages))
+
+    assert all(ldu.section_path == () for ldu in ldus)
+
+
+def test_section_path_inference_suppresses_page_labels_and_contact_lines() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 120, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Page 1",
+                bbox=(0.0, 0.0, 40.0, 16.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Telephone number +251 111 568464",
+                bbox=(0.0, 20.0, 80.0, 36.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Email: analyst@example.org",
+                bbox=(0.0, 40.0, 80.0, 56.0),
+                reading_order=2,
+                content_hash="t3",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="https://www.example.org/report",
+                bbox=(0.0, 60.0, 80.0, 76.0),
+                reading_order=3,
+                content_hash="t4",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="1 Overview",
+                bbox=(0.0, 80.0, 80.0, 96.0),
+                reading_order=4,
+                content_hash="t5",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="This section contains the actual body text for the report.",
+                bbox=(0.0, 100.0, 120.0, 112.0),
+                reading_order=5,
+                content_hash="t6",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert ldus[0].section_path == ()
+    assert ldus[1].section_path == ()
+    assert ldus[2].section_path == ()
+    assert ldus[3].section_path == ()
+    assert ldus[4].section_path == ("1 Overview",)
+    assert ldus[5].section_path == ("1 Overview",)
+
+
+def test_section_path_inference_requires_body_after_unnumbered_heading() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 100, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Content",
+                bbox=(0.0, 0.0, 50.0, 18.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Summary",
+                bbox=(0.0, 26.0, 50.0, 44.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Monthly Highlights",
+                bbox=(0.0, 60.0, 60.0, 78.0),
+                reading_order=2,
+                content_hash="t3",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="This paragraph expands on the monthly highlights with enough detail to count as body text.",
+                bbox=(0.0, 90.0, 120.0, 102.0),
+                reading_order=3,
+                content_hash="t4",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert ldus[0].section_path == ()
+    assert ldus[1].section_path == ()
+    assert ldus[2].section_path == ("Monthly Highlights",)
+    assert ldus[3].section_path == ("Monthly Highlights",)
 
 
 def test_section_boundary_changes_across_pages_affect_paths_hashes_and_chunks() -> None:
@@ -879,6 +1314,39 @@ def test_vector_store_preserves_chunk_metadata() -> None:
     assert metadata["content_hash"] == chunk.content_hash
 
 
+def test_vector_store_omits_empty_section_path_metadata_for_root_records() -> None:
+    collection = FakeChromaCollection()
+    store = ChromaVectorStore(
+        embedding_backend=FakeEmbeddingBackend(),
+        collection=collection,
+    )
+    ldu = _ldu(text="Root-level content.", page_number=1, source_block_order=0, section_path=())
+
+    store.ingest_ldus([ldu])
+
+    metadata = _require_last_upsert(collection)["metadatas"][0]
+    assert "section_path" not in metadata
+    assert metadata["section_path_str"] == ""
+
+
+def test_vector_store_batches_large_upserts() -> None:
+    collection = FakeChromaCollection()
+    store = ChromaVectorStore(
+        embedding_backend=FakeEmbeddingBackend(),
+        collection=collection,
+        max_upsert_batch_size=2,
+    )
+    ldus = [
+        _ldu(text=f"Record {index}", page_number=1, source_block_order=index, section_path=("1 Overview",))
+        for index in range(5)
+    ]
+
+    store.ingest_ldus(ldus)
+
+    assert [len(call["ids"]) for call in collection.upserts] == [2, 2, 1]
+    assert len(collection.records) == 5
+
+
 def test_vector_store_supports_filtered_retrieval_by_section_path() -> None:
     collection = FakeChromaCollection()
     store = ChromaVectorStore(
@@ -914,3 +1382,146 @@ def test_vector_store_is_deterministic_with_fake_embedding_backend() -> None:
 
     assert [match.record_id for match in first] == [match.record_id for match in second]
     assert all(isinstance(match, VectorStoreMatch) for match in first)
+
+
+def test_retrieval_evaluation_baseline_flow() -> None:
+    vector_backend = FakeVectorRetrievalBackend(
+        responses={
+            ("precision query", None): [
+                VectorStoreMatch(record_id="doc123-r1", text="Precision", metadata={}, distance=0.1),
+                VectorStoreMatch(record_id="doc123-r9", text="Noise", metadata={}, distance=0.2),
+                VectorStoreMatch(record_id="doc123-r8", text="Noise", metadata={}, distance=0.3),
+            ]
+        }
+    )
+    evaluator = RetrievalEvaluator(
+        vector_backend=vector_backend,
+        page_index_backend=FakePageIndexTraversalBackend(responses={}),
+    )
+
+    report = evaluator.evaluate_baseline(
+        [LabeledRetrievalQuery(query_id="q1", topic="precision query", relevant_record_ids=("doc123-r1",))]
+    )
+
+    assert report.per_query[0].retrieved_record_ids == ("doc123-r1", "doc123-r9", "doc123-r8")
+    assert report.metrics.precision_at_3 == pytest.approx(1.0 / 3.0)
+    assert report.metrics.hit_rate == 1.0
+
+
+def test_retrieval_evaluation_pageindex_assisted_flow() -> None:
+    tree = PageIndexBuilder().build(
+        doc_id="doc123",
+        ldus=[
+            _ldu(text="Methods", page_number=1, source_block_order=0, section_path=("1 Methods",)),
+            _ldu(text="Results", page_number=2, source_block_order=0, section_path=("2 Results",)),
+        ],
+    )
+    vector_backend = FakeVectorRetrievalBackend(
+        responses={
+            ("results query", ("2 Results",)): [
+                VectorStoreMatch(record_id="doc123-r2", text="Results", metadata={}, distance=0.1),
+                VectorStoreMatch(record_id="doc123-r3", text="More results", metadata={}, distance=0.2),
+            ],
+            ("results query", ("1 Methods",)): [
+                VectorStoreMatch(record_id="doc123-r7", text="Methods", metadata={}, distance=0.1),
+            ],
+        }
+    )
+    page_index_backend = FakePageIndexTraversalBackend(
+        responses={
+            "results query": [
+                PageIndexMatch(
+                    node_id="node-results",
+                    title="2 Results",
+                    section_path=("2 Results",),
+                    score=10,
+                    start_page=2,
+                    end_page=2,
+                    summary="Results summary",
+                ),
+                PageIndexMatch(
+                    node_id="node-methods",
+                    title="1 Methods",
+                    section_path=("1 Methods",),
+                    score=5,
+                    start_page=1,
+                    end_page=1,
+                    summary="Methods summary",
+                ),
+            ]
+        }
+    )
+    evaluator = RetrievalEvaluator(vector_backend=vector_backend, page_index_backend=page_index_backend)
+
+    report = evaluator.evaluate_pageindex_assisted(
+        tree,
+        [LabeledRetrievalQuery(query_id="q1", topic="results query", relevant_record_ids=("doc123-r2", "doc123-r3"))],
+    )
+
+    assert report.per_query[0].retrieved_record_ids == ("doc123-r2", "doc123-r3", "doc123-r7")
+    assert report.metrics.precision_at_3 == pytest.approx(2.0 / 3.0)
+    assert report.metrics.hit_rate == 1.0
+
+
+def test_retrieval_evaluation_applies_section_filters_before_vector_search() -> None:
+    tree = PageIndexBuilder().build(
+        doc_id="doc123",
+        ldus=[
+            _ldu(text="Results", page_number=1, source_block_order=0, section_path=("2 Results",)),
+            _ldu(text="Discussion", page_number=2, source_block_order=0, section_path=("3 Discussion",)),
+        ],
+    )
+    vector_backend = FakeVectorRetrievalBackend(
+        responses={
+            ("topic", ("2 Results",)): [VectorStoreMatch(record_id="r1", text="A", metadata={}, distance=0.1)],
+            ("topic", ("3 Discussion",)): [VectorStoreMatch(record_id="r2", text="B", metadata={}, distance=0.2)],
+        }
+    )
+    page_index_backend = FakePageIndexTraversalBackend(
+        responses={
+            "topic": [
+                PageIndexMatch("n1", "2 Results", ("2 Results",), 10, 1, 1, "summary"),
+                PageIndexMatch("n2", "3 Discussion", ("3 Discussion",), 9, 2, 2, "summary"),
+            ]
+        }
+    )
+    evaluator = RetrievalEvaluator(vector_backend=vector_backend, page_index_backend=page_index_backend)
+
+    evaluator.evaluate_pageindex_assisted(
+        tree,
+        [LabeledRetrievalQuery(query_id="q1", topic="topic", relevant_record_ids=("r1",))],
+    )
+
+    assert [call["section_path"] for call in vector_backend.calls] == [("2 Results",), ("3 Discussion",)]
+
+
+def test_retrieval_evaluation_metrics_are_deterministic() -> None:
+    vector_backend = FakeVectorRetrievalBackend(
+        responses={
+            ("q-results", None): [
+                VectorStoreMatch(record_id="r1", text="A", metadata={}, distance=0.1),
+                VectorStoreMatch(record_id="r2", text="B", metadata={}, distance=0.2),
+                VectorStoreMatch(record_id="r3", text="C", metadata={}, distance=0.3),
+            ],
+            ("q-finance", None): [
+                VectorStoreMatch(record_id="r9", text="X", metadata={}, distance=0.1),
+                VectorStoreMatch(record_id="r8", text="Y", metadata={}, distance=0.2),
+                VectorStoreMatch(record_id="r7", text="Z", metadata={}, distance=0.3),
+            ],
+        }
+    )
+    evaluator = RetrievalEvaluator(
+        vector_backend=vector_backend,
+        page_index_backend=FakePageIndexTraversalBackend(responses={}),
+    )
+    queries = [
+        LabeledRetrievalQuery(query_id="q1", topic="q-results", relevant_record_ids=("r1", "r3")),
+        LabeledRetrievalQuery(query_id="q2", topic="q-finance", relevant_record_ids=("r5",)),
+    ]
+
+    first = evaluator.evaluate_baseline(queries)
+    second = evaluator.evaluate_baseline(queries)
+
+    assert first.metrics == second.metrics
+    assert first.metrics.precision_at_3 == pytest.approx((2.0 / 3.0 + 0.0) / 2.0)
+    assert first.metrics.hit_rate == 0.5

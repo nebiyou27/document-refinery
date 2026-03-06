@@ -10,6 +10,7 @@ from src.chunking.sections import SectionCandidate, SectionPathInferer
 from src.chunking.validator import ChunkValidator, ChunkingRules
 from src.models.chunking import Chunk, LDU, LDUKind
 from src.models.extracted_document import ExtractedDocument, FigureBlock, TableBlock, TextBlock
+from src.utils.hashing import canonicalize_text
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,16 @@ class ChunkingEngine:
         sequence_number = 0
 
         for ldu in ldus:
+            if self._ldu_exceeds_chunk_limit(ldu):
+                if buffer:
+                    chunks.append(self._make_chunk(document.doc_id, buffer, sequence_number))
+                    sequence_number += 1
+                    buffer = []
+                oversized_chunks = self._split_oversized_ldu(document.doc_id, ldu, sequence_number)
+                chunks.extend(oversized_chunks)
+                sequence_number += len(oversized_chunks)
+                continue
+
             if self._should_emit_buffer(buffer, next_ldu=ldu):
                 chunks.append(self._make_chunk(document.doc_id, buffer, sequence_number))
                 sequence_number += 1
@@ -98,6 +109,9 @@ class ChunkingEngine:
 
         return chunks
 
+    def _ldu_exceeds_chunk_limit(self, ldu: LDU) -> bool:
+        return len(ldu.text) > self.config.max_chunk_chars
+
     def _should_emit_buffer(self, buffer: list[LDU], next_ldu: LDU) -> bool:
         if not buffer:
             return False
@@ -105,18 +119,20 @@ class ChunkingEngine:
         current_page = buffer[0].page_number
         current_section = buffer[0].section_path
         current_length = len(self._join_text(buffer))
+        separator_length = 2 if buffer else 0
 
         if not self.config.allow_multi_page_chunks and next_ldu.page_number != current_page:
             return True
         if self.config.split_on_section_change and next_ldu.section_path != current_section:
             return True
-        if current_length + len(next_ldu.text) > self.config.max_chunk_chars:
+        if current_length + separator_length + len(next_ldu.text) > self.config.max_chunk_chars:
             return True
         return False
 
     def _make_chunk(self, doc_id: str, ldus: list[LDU], sequence_number: int) -> Chunk:
         text = self._join_text(ldus)
         bbox = self._merge_bbox(ldus)
+        metadata = {"kinds": [ldu.kind.value for ldu in ldus]}
         chunk = Chunk(
             doc_id=doc_id,
             page_number=ldus[0].page_number,
@@ -124,11 +140,83 @@ class ChunkingEngine:
             section_path=ldus[0].section_path,
             ldu_ids=[ldu.ldu_id for ldu in ldus if ldu.ldu_id is not None],
             text=text,
-            metadata={"kinds": [ldu.kind.value for ldu in ldus]},
+            metadata=metadata,
             sequence_number=sequence_number,
         )
         self.validator.raise_for_issues(self.validator.validate_chunk(chunk, ldus))
         return chunk
+
+    def _split_oversized_ldu(self, doc_id: str, ldu: LDU, sequence_number: int) -> list[Chunk]:
+        pieces = self._split_text_to_max_chars(ldu.text)
+        chunks: list[Chunk] = []
+        for offset, piece in enumerate(pieces):
+            metadata = {
+                "kinds": [ldu.kind.value],
+                "split_from_oversized_ldu": True,
+                "split_part_index": offset,
+                "split_part_count": len(pieces),
+            }
+            chunk = Chunk(
+                doc_id=doc_id,
+                page_number=ldu.page_number,
+                bbox=ldu.bbox,
+                section_path=ldu.section_path,
+                ldu_ids=[ldu.ldu_id] if ldu.ldu_id is not None else [],
+                text=piece,
+                metadata=metadata,
+                sequence_number=sequence_number + offset,
+            )
+            self.validator.raise_for_issues(self.validator.validate_chunk(chunk, [ldu]))
+            chunks.append(chunk)
+        return chunks
+
+    def _split_text_to_max_chars(self, text: str) -> list[str]:
+        max_chars = self.config.max_chunk_chars
+        if len(text) <= max_chars:
+            return [text]
+
+        lines = text.splitlines()
+        if not lines:
+            return [text[index : index + max_chars] for index in range(0, len(text), max_chars)]
+
+        pieces: list[str] = []
+        current: list[str] = []
+
+        for line in lines:
+            line_segments = self._split_long_line(line, max_chars)
+            for segment in line_segments:
+                candidate_lines = current + [segment]
+                candidate_text = "\n".join(candidate_lines)
+                if current and len(candidate_text) > max_chars:
+                    pieces.append("\n".join(current))
+                    current = [segment]
+                else:
+                    current = candidate_lines
+
+        if current:
+            pieces.append("\n".join(current))
+
+        return [piece for piece in pieces if piece]
+
+    def _split_long_line(self, line: str, max_chars: int) -> list[str]:
+        if len(line) <= max_chars:
+            return [line]
+
+        segments: list[str] = []
+        remaining = line
+        while len(remaining) > max_chars:
+            split_at = remaining.rfind(" ", 0, max_chars + 1)
+            if split_at <= 0:
+                split_at = max_chars
+            segment = remaining[:split_at].rstrip()
+            if not segment:
+                segment = remaining[:max_chars]
+                split_at = max_chars
+            segments.append(segment)
+            remaining = remaining[split_at:].lstrip()
+        if remaining:
+            segments.append(remaining)
+        return segments
 
     def _collect_ordered_units(self, document: ExtractedDocument) -> list[OrderedUnit]:
         ordered_units: list[OrderedUnit] = []
@@ -152,6 +240,10 @@ class ChunkingEngine:
 
             for table_block in sorted(page.table_blocks, key=lambda block: block.table_index):
                 table_text = "\n".join(" | ".join(cell for cell in row) for row in table_block.rows) or "[table]"
+                if not canonicalize_text(table_text):
+                    continue
+                if not self._table_header_row(table_block):
+                    continue
                 ordered_units.append(
                     OrderedUnit(
                         candidate=SectionCandidate(
@@ -169,6 +261,8 @@ class ChunkingEngine:
                 )
 
             for figure_index, figure_block in enumerate(page.figure_blocks):
+                if not (figure_block.caption or "").strip():
+                    continue
                 ordered_units.append(
                     OrderedUnit(
                         candidate=SectionCandidate(
@@ -245,14 +339,15 @@ class ChunkingEngine:
     ) -> LDU:
         if not isinstance(block, TableBlock):
             raise TypeError("Expected TableBlock")
-        header_row = block.rows[0] if block.rows else []
+        header_row = self._table_header_row(block)
         table_text = "\n".join(" | ".join(cell for cell in row) for row in block.rows)
+        normalized_table_text = canonicalize_text(table_text)
         return LDU(
             doc_id=doc_id,
             page_number=block.page_number,
             bbox=block.bbox,
             kind=LDUKind.table,
-            text=table_text or "[table]",
+            text=table_text if normalized_table_text else "[table]",
             section_path=section_path,
             metadata={
                 "block_type": block.block_type.value,
@@ -261,6 +356,11 @@ class ChunkingEngine:
             },
             source_block_order=10_000 + block.table_index,
         )
+
+    def _table_header_row(self, block: TableBlock) -> list[str]:
+        if not block.rows:
+            return []
+        return [str(cell).strip() for cell in block.rows[0] if str(cell).strip()]
 
     def _ldu_from_figure_block(
         self,

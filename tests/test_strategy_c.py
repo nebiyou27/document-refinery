@@ -143,6 +143,7 @@ def test_strategy_c_parses_structured_vlm_json(monkeypatch, tmp_path: Path) -> N
     assert "- one" in page.text
     assert len(page.tables) == 1
     assert len(page.table_blocks) == 1
+    assert page.table_blocks[0].rows == [["a"], ["1"]]
     assert len(page.figure_blocks) == 1
 
 

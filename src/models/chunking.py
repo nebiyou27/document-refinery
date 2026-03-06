@@ -11,6 +11,21 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from src.utils.hashing import canonicalize_text, ldu_content_hash
 
 
+_BBOX_ZERO_TOLERANCE = 1e-4
+
+
+def normalize_bbox(value: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
+    """Clamp tiny negative float noise to zero without accepting real negatives."""
+
+    normalized = tuple(0.0 if -_BBOX_ZERO_TOLERANCE < coordinate < 0.0 else coordinate for coordinate in value)
+    x0, y0, x1, y1 = normalized
+    if x0 < 0 or y0 < 0:
+        raise ValueError("bbox coordinates must be non-negative")
+    if x0 >= x1 or y0 >= y1:
+        raise ValueError("bbox must satisfy x0 < x1 and y0 < y1")
+    return normalized
+
+
 class LDUKind(str, Enum):
     """Logical document unit kinds emitted by the chunking engine."""
 
@@ -54,12 +69,7 @@ class LDU(BaseModel):
     @field_validator("bbox")
     @classmethod
     def validate_bbox(cls, value: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
-        x0, y0, x1, y1 = value
-        if x0 < 0 or y0 < 0:
-            raise ValueError("bbox coordinates must be non-negative")
-        if x0 >= x1 or y0 >= y1:
-            raise ValueError("bbox must satisfy x0 < x1 and y0 < y1")
-        return value
+        return normalize_bbox(value)
 
     @field_validator("text")
     @classmethod
@@ -109,12 +119,7 @@ class Chunk(BaseModel):
     @field_validator("bbox")
     @classmethod
     def validate_bbox(cls, value: tuple[float, float, float, float]) -> tuple[float, float, float, float]:
-        x0, y0, x1, y1 = value
-        if x0 < 0 or y0 < 0:
-            raise ValueError("bbox coordinates must be non-negative")
-        if x0 >= x1 or y0 >= y1:
-            raise ValueError("bbox must satisfy x0 < x1 and y0 < y1")
-        return value
+        return normalize_bbox(value)
 
     @model_validator(mode="after")
     def populate_hashes(self) -> "Chunk":

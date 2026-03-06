@@ -1,0 +1,15 @@
+[
+  {
+    "file": "ETS_Annual_Report_2024_2025.pdf",
+    "pages": "94",
+    "avg_char_density": "0.002423",
+    "avg_image_ratio": "0.6109",
+    "avg_x_jump": "0.0062",
+    "avg_tables/page": "0.2",
+    "origin_type": "mixed",
+    "layout": "single_column",
+    "strategy": "A \u2014 Fast Text (pdfplumber)",
+    "selected_as": "A \u2014 Fast Text (pdfplumber) \u2014 Easy",
+    "boundary_score": ""
+  }
+]

@@ -10,6 +10,13 @@ from .page_index_summarizer import (
     SummaryBackendError,
     SummaryInput,
 )
+from .retrieval_evaluation import (
+    LabeledRetrievalQuery,
+    RetrievalEvaluationReport,
+    RetrievalEvaluator,
+    RetrievalMetrics,
+    RetrievalRunResult,
+)
 from .sections import SectionCandidate, SectionPathInferer
 from .validator import ChunkValidationError, ChunkValidator
 from .vector_store import ChromaVectorStore, EmbeddingBackend, VectorStoreError, VectorStoreMatch
@@ -25,6 +32,11 @@ __all__ = [
     "PageIndexTree",
     "OllamaSummaryBackend",
     "PageIndexSummarizer",
+    "LabeledRetrievalQuery",
+    "RetrievalEvaluationReport",
+    "RetrievalEvaluator",
+    "RetrievalMetrics",
+    "RetrievalRunResult",
     "SectionCandidate",
     "SectionPathInferer",
     "SummaryBackend",
