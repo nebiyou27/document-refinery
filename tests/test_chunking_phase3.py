@@ -9,7 +9,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.chunking import ChunkValidationError, ChunkValidator, ChunkingConfig, ChunkingEngine
+from src.chunking import (
+    ChunkValidationError,
+    ChunkValidator,
+    ChunkingConfig,
+    ChunkingEngine,
+    PageIndexBuilder,
+)
 from src.models.chunking import LDU, LDUKind
 from src.models.extracted_document import (
     ExtractedDocument,
@@ -40,6 +46,24 @@ def _document_from_pages(*pages: ExtractedPage) -> ExtractedDocument:
         page_count=len(pages),
         metadata=_metadata(),
         pages=list(pages),
+    )
+
+
+def _ldu(
+    *,
+    text: str,
+    page_number: int,
+    source_block_order: int,
+    section_path: tuple[str, ...],
+) -> LDU:
+    return LDU(
+        doc_id="doc123",
+        page_number=page_number,
+        bbox=(0.0, float(source_block_order), 10.0, float(source_block_order + 1)),
+        kind=LDUKind.text,
+        text=text,
+        section_path=section_path,
+        source_block_order=source_block_order,
     )
 
 
@@ -344,3 +368,104 @@ def test_section_boundary_changes_across_pages_affect_paths_hashes_and_chunks() 
     assert len(chunks) == 2
     assert chunks[0].section_path == ("1 Introduction",)
     assert chunks[1].section_path == ("2 Discussion",)
+
+
+def test_page_index_builder_handles_flat_section_tree() -> None:
+    ldus = [
+        _ldu(text="Intro body", page_number=1, source_block_order=0, section_path=("1 Introduction",)),
+        _ldu(text="Result body", page_number=2, source_block_order=0, section_path=("2 Results",)),
+    ]
+
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    nodes_by_title = {node.title: node for node in tree.nodes}
+    root = next(node for node in tree.nodes if node.section_path == ())
+
+    assert [nodes_by_title["1 Introduction"].parent_id, nodes_by_title["2 Results"].parent_id] == [root.node_id, root.node_id]
+    assert root.child_ids == [nodes_by_title["1 Introduction"].node_id, nodes_by_title["2 Results"].node_id]
+    assert nodes_by_title["1 Introduction"].ldu_ids == [ldus[0].ldu_id]
+    assert nodes_by_title["2 Results"].ldu_ids == [ldus[1].ldu_id]
+
+
+def test_page_index_builder_handles_nested_section_tree() -> None:
+    ldus = [
+        _ldu(text="Parent body", page_number=1, source_block_order=0, section_path=("3 Results",)),
+        _ldu(
+            text="Child body",
+            page_number=1,
+            source_block_order=1,
+            section_path=("3 Results", "3.2 Retrieval Precision"),
+        ),
+    ]
+
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    nodes_by_path = {node.section_path: node for node in tree.nodes}
+
+    assert nodes_by_path[("3 Results",)].child_ids == [nodes_by_path[("3 Results", "3.2 Retrieval Precision")].node_id]
+    assert nodes_by_path[("3 Results", "3.2 Retrieval Precision")].parent_id == nodes_by_path[("3 Results",)].node_id
+    assert nodes_by_path[("3 Results", "3.2 Retrieval Precision")].ldu_ids == [ldus[1].ldu_id]
+
+
+def test_page_index_builder_aggregates_repeated_sections_across_pages() -> None:
+    ldus = [
+        _ldu(text="Methods p1", page_number=1, source_block_order=0, section_path=("2 Methods",)),
+        _ldu(text="Methods p2", page_number=2, source_block_order=0, section_path=("2 Methods",)),
+    ]
+
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    methods_node = next(node for node in tree.nodes if node.section_path == ("2 Methods",))
+
+    assert methods_node.start_page == 1
+    assert methods_node.end_page == 2
+    assert methods_node.ldu_ids == [ldus[0].ldu_id, ldus[1].ldu_id]
+
+
+def test_page_index_builder_constructs_parent_child_relationships_in_order() -> None:
+    ldus = [
+        _ldu(text="A", page_number=1, source_block_order=0, section_path=("1 Introduction",)),
+        _ldu(text="B", page_number=1, source_block_order=1, section_path=("2 Results",)),
+        _ldu(text="C", page_number=1, source_block_order=2, section_path=("2 Results", "2.1 Precision")),
+    ]
+
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    root = next(node for node in tree.nodes if node.section_path == ())
+    intro = next(node for node in tree.nodes if node.section_path == ("1 Introduction",))
+    results = next(node for node in tree.nodes if node.section_path == ("2 Results",))
+    precision = next(node for node in tree.nodes if node.section_path == ("2 Results", "2.1 Precision"))
+
+    assert root.child_ids == [intro.node_id, results.node_id]
+    assert results.child_ids == [precision.node_id]
+    assert intro.parent_id == root.node_id
+    assert results.parent_id == root.node_id
+    assert precision.parent_id == results.node_id
+
+
+def test_page_index_builder_attaches_ldus_to_leaf_and_aggregates_page_ranges() -> None:
+    ldus = [
+        _ldu(text="Overview", page_number=1, source_block_order=0, section_path=("4 Discussion",)),
+        _ldu(
+            text="Subsection detail page 2",
+            page_number=2,
+            source_block_order=0,
+            section_path=("4 Discussion", "4.1 Error Analysis"),
+        ),
+        _ldu(
+            text="Subsection detail page 3",
+            page_number=3,
+            source_block_order=0,
+            section_path=("4 Discussion", "4.1 Error Analysis"),
+        ),
+    ]
+
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    discussion = next(node for node in tree.nodes if node.section_path == ("4 Discussion",))
+    error_analysis = next(node for node in tree.nodes if node.section_path == ("4 Discussion", "4.1 Error Analysis"))
+    root = next(node for node in tree.nodes if node.section_path == ())
+
+    assert discussion.ldu_ids == [ldus[0].ldu_id]
+    assert error_analysis.ldu_ids == [ldus[1].ldu_id, ldus[2].ldu_id]
+    assert error_analysis.start_page == 2
+    assert error_analysis.end_page == 3
+    assert discussion.start_page == 1
+    assert discussion.end_page == 3
+    assert root.start_page == 1
+    assert root.end_page == 3

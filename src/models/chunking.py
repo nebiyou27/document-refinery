@@ -147,9 +147,13 @@ class PageIndexNode(BaseModel):
     node_id: str
     title: str = Field(min_length=1)
     section_path: tuple[str, ...] = Field(default_factory=tuple)
-    page_number: int = Field(ge=1)
+    parent_id: str | None = None
+    depth: int = Field(ge=0)
+    start_page: int = Field(ge=1)
+    end_page: int = Field(ge=1)
     bbox: tuple[float, float, float, float] | None = None
     child_ids: list[str] = Field(default_factory=list)
+    ldu_ids: list[str] = Field(default_factory=list)
     chunk_ids: list[str] = Field(default_factory=list)
+    order_index: int = Field(default=0, ge=0)
     summary: str | None = None
-
