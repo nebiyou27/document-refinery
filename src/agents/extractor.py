@@ -11,7 +11,7 @@ from src.models.extracted_document import ExtractedDocument, ExtractedPage, Extr
 from src.strategies.strategy_a import extract_with_pdfplumber
 from src.strategies.strategy_b import extract_pages_with_docling
 from src.strategies.strategy_c import extract_pages_with_vision
-from src.utils.hashing import content_hash
+from src.utils.hashing import canonicalize_text, content_hash
 from src.utils.ledger import append_ledger_entry
 
 RULES_PATH = Path("rubric/extraction_rules.yaml")
@@ -220,6 +220,16 @@ def _assemble_document(
     vlm_calls = sum(int(p.signals.get("vlm_calls", 1 if int(p.signals.get("used_vlm", 0)) == 1 else 0)) for p in pages)
     vlm_seconds_total = sum(float(p.metadata.vlm_wall_time_sec or p.signals.get("vlm_wall_time_sec", 0.0)) for p in pages)
     all_error = all(p.status == "error" for p in pages) if pages else True
+    document_error_message = None
+    if all_error:
+        document_error_message = next(
+            (
+                (page.error_message or "").strip()
+                for page in pages
+                if (page.error_message or "").strip()
+            ),
+            f"{default_strategy}_failed",
+        )
 
     return ExtractedDocument(
         doc_id=profile.doc_id,
@@ -241,7 +251,7 @@ def _assemble_document(
             escalation_target=None,
         ),
         pages=pages,
-        error_message=f"{default_strategy}_failed" if all_error else None,
+        error_message=document_error_message,
     )
 
 
@@ -297,6 +307,46 @@ def _update_document_metadata(doc: ExtractedDocument) -> dict[str, int]:
     return page_escalation_targets
 
 
+def _looks_like_strategy_c_meta_output(text: str) -> bool:
+    normalized = canonicalize_text(text).lower()
+    if not normalized:
+        return False
+    markers = (
+        "the extracted json is as follows",
+        "the plain_text field contains",
+        "plain_text field contains",
+        "the following bullets",
+        "the following figures",
+    )
+    return any(marker in normalized for marker in markers)
+
+
+def _page_has_usable_content(page: ExtractedPage) -> bool:
+    if page.status != "ok":
+        return False
+    if page.table_blocks or page.tables:
+        return True
+    text = canonicalize_text(page.text)
+    if not text:
+        return False
+    if _looks_like_strategy_c_meta_output(text):
+        return False
+    return True
+
+
+def _strategy_c_fallback_reason(doc: ExtractedDocument) -> str | None:
+    if doc.status == "error":
+        timeout_pages = [
+            page for page in doc.pages if "timed out" in (page.error_message or "").lower()
+        ]
+        if timeout_pages:
+            return "strategy_c_timeout_or_error"
+        return "strategy_c_document_error"
+    if not any(_page_has_usable_content(page) for page in doc.pages):
+        return "strategy_c_no_usable_content"
+    return None
+
+
 def run_extraction(pdf_path: Path, strategy: str | None = None) -> ExtractedDocument:
     if not pdf_path.exists():
         return _error_document(pdf_path, f"File not found: {pdf_path}")
@@ -332,6 +382,13 @@ def run_extraction(pdf_path: Path, strategy: str | None = None) -> ExtractedDocu
     planned_strategy_b = 0
     planned_strategy_c = 0
     executions_by_strategy: dict[str, int] = {"strategy_a": 0, "strategy_b": 0, "strategy_c": 0}
+    strategy_c_fallback_to_b: dict[str, object] = {
+        "attempted": False,
+        "trigger_reason": None,
+        "recovered": False,
+        "recovery_status": None,
+        "recovery_usable_content": False,
+    }
 
     if start_strategy == "strategy_b":
         all_pages = list(range(1, profile.page_count + 1))
@@ -423,6 +480,46 @@ def run_extraction(pdf_path: Path, strategy: str | None = None) -> ExtractedDocu
         extracted.metadata.strategy_used = _final_strategy_from_pages(extracted.pages)
         page_escalation_targets = _update_document_metadata(extracted)
         executed_strategy = extracted.metadata.strategy_used
+
+        fallback_reason = _strategy_c_fallback_reason(extracted)
+        if fallback_reason is not None:
+            strategy_c_fallback_to_b["attempted"] = True
+            strategy_c_fallback_to_b["trigger_reason"] = fallback_reason
+            planned_strategy_b = len(all_pages)
+            pages_b = extract_pages_with_docling(
+                pdf_path=pdf_path,
+                page_numbers=all_pages,
+                rules=rules,
+                batch_size=5,
+            )
+            recovered = _assemble_document(
+                pdf_path=pdf_path,
+                profile=profile,
+                pages_by_number=pages_b,
+                default_strategy="strategy_b",
+            )
+            pages_b_executed = len(all_pages)
+            for page_number in all_pages:
+                b_page = recovered.pages[page_number - 1]
+                b_page.metadata.escalation_triggered = False
+                b_page.metadata.escalation_target = None
+                _record_page_execution(
+                    doc=recovered,
+                    page=b_page,
+                    escalated_to=None,
+                    executions_by_strategy=executions_by_strategy,
+                )
+
+            recovered.metadata.strategy_used = _final_strategy_from_pages(recovered.pages)
+            recovered_page_escalation_targets = _update_document_metadata(recovered)
+            recovered_has_usable_content = any(_page_has_usable_content(page) for page in recovered.pages)
+            strategy_c_fallback_to_b["recovery_status"] = recovered.status
+            strategy_c_fallback_to_b["recovery_usable_content"] = recovered_has_usable_content
+            if recovered.status == "ok" and recovered_has_usable_content:
+                strategy_c_fallback_to_b["recovered"] = True
+                extracted = recovered
+                page_escalation_targets = recovered_page_escalation_targets
+                executed_strategy = extracted.metadata.strategy_used
     else:
         extracted = extract_with_pdfplumber(pdf_path=pdf_path, rules=rules)
         a_min_conf = float(
@@ -564,6 +661,7 @@ def run_extraction(pdf_path: Path, strategy: str | None = None) -> ExtractedDocu
                     "targets": page_escalation_targets,
                     "pages_below_strategy_a_confidence": pages_below_strategy_a,
                 },
+                "strategy_c_fallback_to_b": strategy_c_fallback_to_b,
             },
             indent=2,
         ),
