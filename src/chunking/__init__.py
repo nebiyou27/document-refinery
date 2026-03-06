@@ -12,10 +12,13 @@ from .page_index_summarizer import (
 )
 from .sections import SectionCandidate, SectionPathInferer
 from .validator import ChunkValidationError, ChunkValidator
+from .vector_store import ChromaVectorStore, EmbeddingBackend, VectorStoreError, VectorStoreMatch
 
 __all__ = [
     "ChunkingConfig",
     "ChunkingEngine",
+    "ChromaVectorStore",
+    "EmbeddingBackend",
     "PageIndexBuilder",
     "PageIndexMatch",
     "PageIndexQueryEngine",
@@ -29,4 +32,6 @@ __all__ = [
     "SummaryInput",
     "ChunkValidationError",
     "ChunkValidator",
+    "VectorStoreError",
+    "VectorStoreMatch",
 ]

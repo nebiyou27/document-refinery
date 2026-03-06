@@ -10,16 +10,19 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.chunking import (
+    ChromaVectorStore,
     ChunkValidationError,
     ChunkValidator,
     ChunkingConfig,
     ChunkingEngine,
+    EmbeddingBackend,
     OllamaSummaryBackend,
     PageIndexBuilder,
     PageIndexQueryEngine,
     PageIndexSummarizer,
     SummaryBackendError,
     SummaryInput,
+    VectorStoreMatch,
 )
 from src.chunking.page_index import PageIndexTree
 from src.models.chunking import LDU, LDUKind
@@ -98,6 +101,114 @@ class FailingOllamaClient:
     def chat(self, **kwargs: object) -> dict[str, object]:
         _ = kwargs
         raise RuntimeError("connection lost")
+
+
+class FakeEmbeddingBackend(EmbeddingBackend):
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [self._embed(text) for text in texts]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._embed(text)
+
+    def _embed(self, text: str) -> list[float]:
+        lowered = text.lower()
+        return [
+            float(len(lowered)),
+            float(lowered.count("results")),
+            float(lowered.count("precision")),
+            float(lowered.count("finance")),
+        ]
+
+
+class FakeChromaCollection:
+    def __init__(self) -> None:
+        self.records: dict[str, dict[str, object]] = {}
+        self.last_upsert: dict[str, object] | None = None
+        self.last_query: dict[str, object] | None = None
+
+    def upsert(
+        self,
+        *,
+        ids: list[str],
+        documents: list[str],
+        embeddings: list[list[float]],
+        metadatas: list[dict[str, object]],
+    ) -> None:
+        self.last_upsert = {
+            "ids": ids,
+            "documents": documents,
+            "embeddings": embeddings,
+            "metadatas": metadatas,
+        }
+        for index, record_id in enumerate(ids):
+            self.records[record_id] = {
+                "id": record_id,
+                "document": documents[index],
+                "embedding": embeddings[index],
+                "metadata": metadatas[index],
+            }
+
+    def query(
+        self,
+        *,
+        query_embeddings: list[list[float]],
+        n_results: int,
+        where: dict[str, object] | None = None,
+        include: list[str] | None = None,
+    ) -> dict[str, object]:
+        self.last_query = {
+            "query_embeddings": query_embeddings,
+            "n_results": n_results,
+            "where": where,
+            "include": include,
+        }
+        query_embedding = query_embeddings[0]
+        filtered = [
+            record for record in self.records.values() if self._matches_where(record["metadata"], where)
+        ]
+        ranked = sorted(
+            filtered,
+            key=lambda record: (
+                self._distance(query_embedding, record["embedding"]),
+                str(record["id"]),
+            ),
+        )[:n_results]
+        return {
+            "ids": [[record["id"] for record in ranked]],
+            "documents": [[record["document"] for record in ranked]],
+            "metadatas": [[record["metadata"] for record in ranked]],
+            "distances": [[self._distance(query_embedding, record["embedding"]) for record in ranked]],
+        }
+
+    def _matches_where(self, metadata: object, where: dict[str, object] | None) -> bool:
+        if where is None:
+            return True
+        if not isinstance(metadata, dict):
+            return False
+        if "$and" in where:
+            clauses = where["$and"]
+            if not isinstance(clauses, list):
+                return False
+            return all(self._matches_where(metadata, clause) for clause in clauses if isinstance(clause, dict))
+        for key, value in where.items():
+            if metadata.get(key) != value:
+                return False
+        return True
+
+    def _distance(self, left: list[float], right: object) -> float:
+        if not isinstance(right, list):
+            return float("inf")
+        return sum(abs(left[index] - float(right[index])) for index in range(min(len(left), len(right))))
+
+
+def _require_last_upsert(collection: FakeChromaCollection) -> dict[str, object]:
+    assert collection.last_upsert is not None
+    return collection.last_upsert
+
+
+def _require_last_query(collection: FakeChromaCollection) -> dict[str, object]:
+    assert collection.last_query is not None
+    return collection.last_query
 
 
 def test_ldu_content_hash_is_stable_and_page_agnostic() -> None:
@@ -701,3 +812,105 @@ def test_page_index_query_handles_missing_summaries() -> None:
     results = PageIndexQueryEngine().query(tree=tree, topic="results")
 
     assert results[0].section_path == ("2 Results",)
+
+
+def test_vector_store_ingests_ldus() -> None:
+    collection = FakeChromaCollection()
+    store = ChromaVectorStore(
+        embedding_backend=FakeEmbeddingBackend(),
+        collection=collection,
+    )
+    ldus = [
+        _ldu(text="Results improved.", page_number=1, source_block_order=0, section_path=("2 Results",)),
+        _ldu(text="Finance remained stable.", page_number=2, source_block_order=0, section_path=("5 Finance",)),
+    ]
+
+    store.ingest_ldus(ldus)
+
+    last_upsert = _require_last_upsert(collection)
+    assert last_upsert["ids"] == [ldus[0].ldu_id, ldus[1].ldu_id]
+    assert last_upsert["documents"] == ["Results improved.", "Finance remained stable."]
+
+
+def test_vector_store_preserves_chunk_metadata() -> None:
+    collection = FakeChromaCollection()
+    store = ChromaVectorStore(
+        embedding_backend=FakeEmbeddingBackend(),
+        collection=collection,
+    )
+    chunk = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=200)).build_chunks(
+        _document_from_pages(
+            ExtractedPage(
+                doc_id="doc123",
+                page_number=1,
+                metadata=_metadata(),
+                signals={"char_count": 40, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+                text_blocks=[
+                    TextBlock(
+                        doc_id="doc123",
+                        page_number=1,
+                        text="2 Results",
+                        bbox=(0.0, 0.0, 50.0, 16.0),
+                        reading_order=0,
+                        content_hash="t1",
+                    ),
+                    TextBlock(
+                        doc_id="doc123",
+                        page_number=1,
+                        text="Precision improved by 8 percent.",
+                        bbox=(0.0, 20.0, 50.0, 32.0),
+                        reading_order=1,
+                        content_hash="t2",
+                    ),
+                ],
+                page_content_hash="page1",
+            )
+        )
+    )[0]
+
+    store.ingest_chunks([chunk])
+
+    metadata = _require_last_upsert(collection)["metadatas"][0]
+    assert metadata["doc_id"] == "doc123"
+    assert metadata["page_number"] == 1
+    assert metadata["section_path"] == ["2 Results"]
+    assert metadata["chunk_id"] == chunk.chunk_id
+    assert metadata["ldu_ids"] == chunk.ldu_ids
+    assert metadata["content_hash"] == chunk.content_hash
+
+
+def test_vector_store_supports_filtered_retrieval_by_section_path() -> None:
+    collection = FakeChromaCollection()
+    store = ChromaVectorStore(
+        embedding_backend=FakeEmbeddingBackend(),
+        collection=collection,
+    )
+    ldus = [
+        _ldu(text="Precision improved in results.", page_number=1, source_block_order=0, section_path=("2 Results",)),
+        _ldu(text="Precision improved in methods.", page_number=2, source_block_order=0, section_path=("1 Methods",)),
+    ]
+    store.ingest_ldus(ldus)
+
+    results = store.query(topic="precision", section_path=("2 Results",), record_type="ldu")
+
+    assert [match.record_id for match in results] == [ldus[0].ldu_id]
+    assert _require_last_query(collection)["where"] == {"$and": [{"section_path_str": "2 Results"}, {"record_type": "ldu"}]}
+
+
+def test_vector_store_is_deterministic_with_fake_embedding_backend() -> None:
+    collection = FakeChromaCollection()
+    store = ChromaVectorStore(
+        embedding_backend=FakeEmbeddingBackend(),
+        collection=collection,
+    )
+    ldus = [
+        _ldu(text="Finance risk overview.", page_number=1, source_block_order=0, section_path=("5 Finance",)),
+        _ldu(text="Results precision overview.", page_number=2, source_block_order=0, section_path=("2 Results",)),
+    ]
+    store.ingest_ldus(ldus)
+
+    first = store.query(topic="results precision")
+    second = store.query(topic="results precision")
+
+    assert [match.record_id for match in first] == [match.record_id for match in second]
+    assert all(isinstance(match, VectorStoreMatch) for match in first)
