@@ -32,6 +32,17 @@ def _metadata() -> ExtractionMetadata:
     )
 
 
+def _document_from_pages(*pages: ExtractedPage) -> ExtractedDocument:
+    return ExtractedDocument(
+        doc_id="doc123",
+        file_name="sample.pdf",
+        file_path="data/sample.pdf",
+        page_count=len(pages),
+        metadata=_metadata(),
+        pages=list(pages),
+    )
+
+
 def test_ldu_content_hash_is_stable_and_page_agnostic() -> None:
     first = LDU(
         doc_id="doc123",
@@ -130,14 +141,7 @@ def test_chunking_engine_emits_deterministic_chunks_with_explicit_rules() -> Non
         ],
         page_content_hash="page1",
     )
-    document = ExtractedDocument(
-        doc_id="doc123",
-        file_name="sample.pdf",
-        file_path="data/sample.pdf",
-        page_count=1,
-        metadata=_metadata(),
-        pages=[page],
-    )
+    document = _document_from_pages(page)
 
     engine = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=200))
     first_run = engine.build_chunks(document)
@@ -154,3 +158,189 @@ def test_chunking_engine_emits_deterministic_chunks_with_explicit_rules() -> Non
     assert first_run[2].metadata["kinds"] == ["figure"]
     assert [chunk.chunk_id for chunk in first_run] == [chunk.chunk_id for chunk in second_run]
     assert [chunk.content_hash for chunk in first_run] == [chunk.content_hash for chunk in second_run]
+
+
+def test_section_path_inference_for_numbered_headings() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 60, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="3 Results",
+                bbox=(0.0, 0.0, 60.0, 16.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="The retrieval pipeline improved materially.",
+                bbox=(0.0, 20.0, 60.0, 32.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert [ldu.section_path for ldu in ldus] == [("3 Results",), ("3 Results",)]
+
+
+def test_section_path_inference_for_nested_numbered_headings() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 120, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="3 Results",
+                bbox=(0.0, 0.0, 80.0, 16.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="3.2 Retrieval Precision",
+                bbox=(0.0, 18.0, 80.0, 34.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Precision improved by 8%.",
+                bbox=(0.0, 38.0, 80.0, 50.0),
+                reading_order=2,
+                content_hash="t3",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert ldus[0].section_path == ("3 Results",)
+    assert ldus[1].section_path == ("3 Results", "3.2 Retrieval Precision")
+    assert ldus[2].section_path == ("3 Results", "3.2 Retrieval Precision")
+
+
+def test_section_context_is_inherited_when_body_blocks_have_no_heading() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 140, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 1},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="2 Methods",
+                bbox=(0.0, 0.0, 60.0, 16.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="We evaluated the pipeline on 10 benchmark queries.",
+                bbox=(0.0, 20.0, 60.0, 32.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+        ],
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 36.0, 60.0, 56.0),
+                content_hash="tb1",
+                table_index=0,
+                rows=[["Metric", "Value"], ["Queries", "10"]],
+            )
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert [ldu.section_path for ldu in ldus] == [
+        ("2 Methods",),
+        ("2 Methods",),
+        ("2 Methods",),
+    ]
+
+
+def test_section_boundary_changes_across_pages_affect_paths_hashes_and_chunks() -> None:
+    first_page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 100, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="1 Introduction",
+                bbox=(0.0, 0.0, 70.0, 16.0),
+                reading_order=0,
+                content_hash="p1t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Shared body text",
+                bbox=(0.0, 20.0, 70.0, 32.0),
+                reading_order=1,
+                content_hash="p1t2",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+    second_page = ExtractedPage(
+        doc_id="doc123",
+        page_number=2,
+        metadata=_metadata(),
+        signals={"char_count": 100, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=2,
+                text="2 Discussion",
+                bbox=(0.0, 0.0, 70.0, 16.0),
+                reading_order=0,
+                content_hash="p2t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=2,
+                text="Shared body text",
+                bbox=(0.0, 20.0, 70.0, 32.0),
+                reading_order=1,
+                content_hash="p2t2",
+            ),
+        ],
+        page_content_hash="page2",
+    )
+
+    engine = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=200))
+    document = _document_from_pages(first_page, second_page)
+
+    ldus = engine.build_ldus(document)
+    chunks = engine.build_chunks(document)
+
+    assert ldus[1].section_path == ("1 Introduction",)
+    assert ldus[3].section_path == ("2 Discussion",)
+    assert ldus[1].content_hash != ldus[3].content_hash
+    assert len(chunks) == 2
+    assert chunks[0].section_path == ("1 Introduction",)
+    assert chunks[1].section_path == ("2 Discussion",)

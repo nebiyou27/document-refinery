@@ -2,11 +2,24 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from pydantic import BaseModel, Field
 
+from src.chunking.sections import SectionCandidate, SectionPathInferer
 from src.chunking.validator import ChunkValidator, ChunkingRules
 from src.models.chunking import Chunk, LDU, LDUKind
 from src.models.extracted_document import ExtractedDocument, FigureBlock, TableBlock, TextBlock
+
+
+@dataclass(frozen=True)
+class OrderedUnit:
+    """Internal ordered extracted unit enriched with a section candidate."""
+
+    candidate: SectionCandidate
+    block: TextBlock | TableBlock | FigureBlock
+    kind: LDUKind
+    source_block_order: int
 
 
 class ChunkingConfig(BaseModel):
@@ -25,6 +38,7 @@ class ChunkingEngine:
         self,
         config: ChunkingConfig | None = None,
         validator: ChunkValidator | None = None,
+        section_inferer: SectionPathInferer | None = None,
     ) -> None:
         self.config = config or ChunkingConfig()
         self.validator = validator or ChunkValidator(
@@ -35,24 +49,24 @@ class ChunkingEngine:
                 max_chunk_chars=self.config.max_chunk_chars,
             )
         )
+        self.section_inferer = section_inferer or SectionPathInferer()
 
     def build_ldus(self, document: ExtractedDocument) -> list[LDU]:
+        ordered_units = self._collect_ordered_units(document)
+        section_paths = self.section_inferer.infer_paths(
+            [unit.candidate for unit in ordered_units]
+        )
         ldus: list[LDU] = []
-        for page in sorted(document.pages, key=lambda current: current.page_number):
-            for text_block in sorted(page.text_blocks, key=lambda block: block.reading_order):
-                ldu = self._ldu_from_text_block(document.doc_id, text_block)
-                self.validator.raise_for_issues(self.validator.validate_ldu(ldu))
-                ldus.append(ldu)
-
-            for table_block in sorted(page.table_blocks, key=lambda block: block.table_index):
-                ldu = self._ldu_from_table_block(document.doc_id, table_block)
-                self.validator.raise_for_issues(self.validator.validate_ldu(ldu))
-                ldus.append(ldu)
-
-            for figure_index, figure_block in enumerate(page.figure_blocks):
-                ldu = self._ldu_from_figure_block(document.doc_id, figure_block, figure_index)
-                self.validator.raise_for_issues(self.validator.validate_ldu(ldu))
-                ldus.append(ldu)
+        for unit in ordered_units:
+            candidate = unit.candidate
+            section_path = section_paths.get(candidate.candidate_id, ())
+            ldu = self._ldu_from_candidate(
+                doc_id=document.doc_id,
+                unit=unit,
+                section_path=section_path,
+            )
+            self.validator.raise_for_issues(self.validator.validate_ldu(ldu))
+            ldus.append(ldu)
 
         return ldus
 
@@ -116,18 +130,121 @@ class ChunkingEngine:
         self.validator.raise_for_issues(self.validator.validate_chunk(chunk, ldus))
         return chunk
 
-    def _ldu_from_text_block(self, doc_id: str, block: TextBlock) -> LDU:
+    def _collect_ordered_units(self, document: ExtractedDocument) -> list[OrderedUnit]:
+        ordered_units: list[OrderedUnit] = []
+        for page in sorted(document.pages, key=lambda current: current.page_number):
+            for text_block in sorted(page.text_blocks, key=lambda block: block.reading_order):
+                ordered_units.append(
+                    OrderedUnit(
+                        candidate=SectionCandidate(
+                            candidate_id=f"text:{page.page_number}:{text_block.reading_order}",
+                            kind=LDUKind.text,
+                            page_number=text_block.page_number,
+                            source_block_order=text_block.reading_order,
+                            text=text_block.text,
+                            bbox=text_block.bbox,
+                        ),
+                        block=text_block,
+                        kind=LDUKind.text,
+                        source_block_order=text_block.reading_order,
+                    )
+                )
+
+            for table_block in sorted(page.table_blocks, key=lambda block: block.table_index):
+                table_text = "\n".join(" | ".join(cell for cell in row) for row in table_block.rows) or "[table]"
+                ordered_units.append(
+                    OrderedUnit(
+                        candidate=SectionCandidate(
+                            candidate_id=f"table:{page.page_number}:{table_block.table_index}",
+                            kind=LDUKind.table,
+                            page_number=table_block.page_number,
+                            source_block_order=10_000 + table_block.table_index,
+                            text=table_text,
+                            bbox=table_block.bbox,
+                        ),
+                        block=table_block,
+                        kind=LDUKind.table,
+                        source_block_order=10_000 + table_block.table_index,
+                    )
+                )
+
+            for figure_index, figure_block in enumerate(page.figure_blocks):
+                ordered_units.append(
+                    OrderedUnit(
+                        candidate=SectionCandidate(
+                            candidate_id=f"figure:{page.page_number}:{figure_index}",
+                            kind=LDUKind.figure,
+                            page_number=figure_block.page_number,
+                            source_block_order=20_000 + figure_index,
+                            text=figure_block.caption or "[figure]",
+                            bbox=figure_block.bbox,
+                        ),
+                        block=figure_block,
+                        kind=LDUKind.figure,
+                        source_block_order=20_000 + figure_index,
+                    )
+                )
+
+        ordered_units.sort(
+            key=lambda unit: (unit.candidate.page_number, unit.source_block_order)
+        )
+        return ordered_units
+
+    def _ldu_from_candidate(
+        self,
+        doc_id: str,
+        unit: OrderedUnit,
+        section_path: tuple[str, ...],
+    ) -> LDU:
+        kind = unit.kind
+        if kind == LDUKind.text:
+            return self._ldu_from_text_block(
+                doc_id=doc_id,
+                block=unit.block,
+                section_path=section_path,
+            )
+        if kind == LDUKind.table:
+            return self._ldu_from_table_block(
+                doc_id=doc_id,
+                block=unit.block,
+                section_path=section_path,
+            )
+        if kind == LDUKind.figure:
+            return self._ldu_from_figure_block(
+                doc_id=doc_id,
+                block=unit.block,
+                section_path=section_path,
+                source_block_order=unit.source_block_order,
+            )
+        raise ValueError(f"Unsupported candidate kind: {kind}")
+
+    def _ldu_from_text_block(
+        self,
+        doc_id: str,
+        block: TextBlock | TableBlock | FigureBlock,
+        section_path: tuple[str, ...],
+    ) -> LDU:
+        if not isinstance(block, TextBlock):
+            raise TypeError("Expected TextBlock")
         return LDU(
             doc_id=doc_id,
             page_number=block.page_number,
             bbox=block.bbox,
             kind=LDUKind.text,
             text=block.text,
+            section_path=section_path,
             metadata={"block_type": block.block_type.value},
             source_block_order=block.reading_order,
         )
 
-    def _ldu_from_table_block(self, doc_id: str, block: TableBlock) -> LDU:
+    def _ldu_from_table_block(
+        self,
+        doc_id: str,
+        block: TextBlock | TableBlock | FigureBlock,
+        section_path: tuple[str, ...],
+    ) -> LDU:
+        if not isinstance(block, TableBlock):
+            raise TypeError("Expected TableBlock")
         header_row = block.rows[0] if block.rows else []
         table_text = "\n".join(" | ".join(cell for cell in row) for row in block.rows)
         return LDU(
@@ -136,6 +253,7 @@ class ChunkingEngine:
             bbox=block.bbox,
             kind=LDUKind.table,
             text=table_text or "[table]",
+            section_path=section_path,
             metadata={
                 "block_type": block.block_type.value,
                 "header_row": header_row,
@@ -144,7 +262,15 @@ class ChunkingEngine:
             source_block_order=10_000 + block.table_index,
         )
 
-    def _ldu_from_figure_block(self, doc_id: str, block: FigureBlock, figure_index: int) -> LDU:
+    def _ldu_from_figure_block(
+        self,
+        doc_id: str,
+        block: TextBlock | TableBlock | FigureBlock,
+        section_path: tuple[str, ...],
+        source_block_order: int,
+    ) -> LDU:
+        if not isinstance(block, FigureBlock):
+            raise TypeError("Expected FigureBlock")
         caption = block.caption or ""
         return LDU(
             doc_id=doc_id,
@@ -152,11 +278,12 @@ class ChunkingEngine:
             bbox=block.bbox,
             kind=LDUKind.figure,
             text=caption or "[figure]",
+            section_path=section_path,
             metadata={
                 "block_type": block.block_type.value,
                 "caption": caption,
             },
-            source_block_order=20_000 + figure_index,
+            source_block_order=source_block_order,
         )
 
     def _join_text(self, ldus: list[LDU]) -> str:
