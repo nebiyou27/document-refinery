@@ -1,0 +1,11 @@
+"""Stage 3 chunking exports."""
+
+from .engine import ChunkingConfig, ChunkingEngine
+from .validator import ChunkValidationError, ChunkValidator
+
+__all__ = [
+    "ChunkingConfig",
+    "ChunkingEngine",
+    "ChunkValidationError",
+    "ChunkValidator",
+]

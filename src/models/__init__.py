@@ -10,6 +10,7 @@ from .document_profile import (
     ProvenanceRef,
     make_error_profile,
 )
+from .chunking import Chunk, LDU, LDUKind, PageIndexNode, ValidationIssue, ValidationSeverity
 from .extracted_document import (
     ExtractedDocument,
     ExtractedPage,
@@ -28,6 +29,12 @@ __all__ = [
     "PageSignal",
     "ProvenanceRef",
     "make_error_profile",
+    "Chunk",
+    "LDU",
+    "LDUKind",
+    "PageIndexNode",
+    "ValidationIssue",
+    "ValidationSeverity",
     "ExtractedDocument",
     "ExtractedPage",
     "ExtractionMetadata",
