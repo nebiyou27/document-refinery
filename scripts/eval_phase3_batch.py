@@ -34,13 +34,17 @@ from src.chunking import (
     SummaryInput,
 )
 from src.chunking.page_index import PageIndexTree
+from src.chunking.sections import SectionInferenceMode, SectionPathInferer
+from src.document_classes import resolve_document_class
 from src.chunking.vector_store import EmbeddingBackend
+from src.models.document_profile import DocumentProfile
 from src.models.chunking import Chunk, LDU, PageIndexNode
 from src.models.extracted_document import ExtractedDocument
 from src.utils.hashing import canonicalize_text
 
 
 LOGGER = logging.getLogger("phase3_batch_eval")
+NO_RETRIEVAL_QUERIES_REASON = "no retrieval evaluation queries could be derived"
 
 
 class HeuristicSummaryBackend(SummaryBackend):
@@ -80,6 +84,9 @@ class HashEmbeddingBackend(EmbeddingBackend):
 class DocumentEvalResult:
     file_path: str
     doc_id: str | None
+    document_class: str | None
+    retrieval_query_derivation_expected: bool
+    section_inference_mode: str | None
     success: bool
     failure_reason: str | None
     page_count: int
@@ -88,12 +95,19 @@ class DocumentEvalResult:
     pageindex_node_count: int
     summaries_generated: bool
     vector_ingestion_succeeded: bool
+    retrieval_evaluation_attempted: bool
     retrieval_evaluation_succeeded: bool
+    retrieval_evaluation_failed: bool
+    retrieval_evaluation_failure_reason: str | None
+    retrieval_evaluation_skipped: bool
+    retrieval_evaluation_skip_reason: str | None
     artifacts_dir: str
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run batch Phase 3 evaluation over selected PDFs from a CSV.")
+    parser = argparse.ArgumentParser(
+        description="Run batch Phase 3 evaluation over selected PDFs from a CSV or explicit PDF paths."
+    )
     parser.add_argument(
         "--csv-path",
         type=Path,
@@ -104,7 +118,15 @@ def parse_args() -> argparse.Namespace:
         "--data-dir",
         type=Path,
         default=Path("data"),
-        help="Directory containing the selected PDFs.",
+        help="Directory containing CSV-selected PDFs.",
+    )
+    parser.add_argument(
+        "--pdf",
+        dest="pdf_paths",
+        type=Path,
+        action="append",
+        default=None,
+        help="Explicit PDF to evaluate. Repeat the flag to evaluate multiple PDFs in the given order.",
     )
     parser.add_argument(
         "--output-dir",
@@ -204,6 +226,15 @@ def resolve_pdf_path(file_name: str, data_dir: Path) -> Path:
     return data_dir / file_name
 
 
+def resolve_explicit_pdf_paths(pdf_paths: list[Path]) -> list[Path]:
+    resolved_paths = [path.resolve() for path in pdf_paths]
+    missing_paths = [path for path in resolved_paths if not path.exists()]
+    if missing_paths:
+        missing_display = ", ".join(str(path) for path in missing_paths)
+        raise FileNotFoundError(f"Missing PDF(s): {missing_display}")
+    return resolved_paths
+
+
 def save_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -268,6 +299,15 @@ def build_query_topic(node: PageIndexNode) -> str:
     return canonicalize_text(title)
 
 
+def load_document_profile(doc_id: str | None) -> DocumentProfile | None:
+    if not doc_id:
+        return None
+    profile_path = ROOT / ".refinery" / "profiles" / f"{doc_id}.json"
+    if not profile_path.exists():
+        return None
+    return DocumentProfile.model_validate_json(profile_path.read_text(encoding="utf-8"))
+
+
 def save_artifacts(
     *,
     output_dir: Path,
@@ -288,6 +328,7 @@ def save_artifacts(
 def process_document(
     *,
     pdf_path: Path,
+    selection_row: dict[str, str] | None,
     args: argparse.Namespace,
     summary_backend: SummaryBackend,
     batch_output_dir: Path,
@@ -298,6 +339,9 @@ def process_document(
     result = DocumentEvalResult(
         file_path=str(pdf_path),
         doc_id=None,
+        document_class=None,
+        retrieval_query_derivation_expected=False,
+        section_inference_mode=None,
         success=False,
         failure_reason=None,
         page_count=0,
@@ -306,7 +350,12 @@ def process_document(
         pageindex_node_count=0,
         summaries_generated=False,
         vector_ingestion_succeeded=False,
+        retrieval_evaluation_attempted=False,
         retrieval_evaluation_succeeded=False,
+        retrieval_evaluation_failed=False,
+        retrieval_evaluation_failure_reason=None,
+        retrieval_evaluation_skipped=False,
+        retrieval_evaluation_skip_reason=None,
         artifacts_dir=str(doc_folder),
     )
 
@@ -323,7 +372,22 @@ def process_document(
         if extracted.status == "error":
             raise RuntimeError(extracted.error_message or "extraction failed")
 
-        engine = ChunkingEngine(config=ChunkingConfig())
+        profile = load_document_profile(extracted.doc_id)
+        document_policy = resolve_document_class(
+            file_name=pdf_path.name,
+            profile=profile,
+            row=selection_row,
+        )
+        result.document_class = document_policy.document_class.value
+        result.retrieval_query_derivation_expected = document_policy.retrieval_query_derivation_expected
+        result.section_inference_mode = document_policy.section_inference_mode.value
+
+        engine = ChunkingEngine(
+            config=ChunkingConfig(),
+            section_inferer=SectionPathInferer(
+                mode=SectionInferenceMode(document_policy.section_inference_mode.value)
+            ),
+        )
         ldus = engine.build_ldus(extracted)
         chunks = engine.build_chunks(extracted)
         result.ldu_count = len(ldus)
@@ -347,21 +411,57 @@ def process_document(
         vector_store.ingest_chunks(chunks)
         result.vector_ingestion_succeeded = True
 
+        result.retrieval_evaluation_attempted = True
         queries = build_retrieval_queries(summarized_tree, chunks)
         LOGGER.info("Derived %s retrieval evaluation queries for %s", len(queries), pdf_path.name)
+        query_payload: dict[str, Any] = {
+            "collection_name": collection_name,
+            "document_class": result.document_class,
+            "retrieval_query_derivation_expected": result.retrieval_query_derivation_expected,
+            "section_inference_mode": result.section_inference_mode,
+            "queries": [asdict(query) for query in queries],
+            "attempted": True,
+            "succeeded": False,
+            "failed": False,
+            "failure_reason": None,
+            "skipped": False,
+            "skip_reason": None,
+        }
         if not queries:
-            raise RuntimeError("no retrieval evaluation queries could be derived")
-
-        evaluator = RetrievalEvaluator(vector_backend=vector_store, page_index_backend=PageIndexQueryEngine())
-        baseline_report = evaluator.evaluate_baseline(queries, top_k=args.top_k, record_type="chunk")
-        assisted_report = evaluator.evaluate_pageindex_assisted(
-            summarized_tree,
-            queries,
-            section_top_k=args.section_top_k,
-            top_k=args.top_k,
-            record_type="chunk",
-        )
-        result.retrieval_evaluation_succeeded = True
+            if document_policy.zero_query_outcome == "failed":
+                result.retrieval_evaluation_failed = True
+                result.retrieval_evaluation_failure_reason = (
+                    f"{NO_RETRIEVAL_QUERIES_REASON}; {document_policy.zero_query_reason}"
+                )
+                query_payload["failed"] = True
+                query_payload["failure_reason"] = result.retrieval_evaluation_failure_reason
+            else:
+                result.retrieval_evaluation_skipped = True
+                result.retrieval_evaluation_skip_reason = (
+                    f"{NO_RETRIEVAL_QUERIES_REASON}; {document_policy.zero_query_reason}"
+                )
+                query_payload["skipped"] = True
+                query_payload["skip_reason"] = result.retrieval_evaluation_skip_reason
+        else:
+            evaluator = RetrievalEvaluator(vector_backend=vector_store, page_index_backend=PageIndexQueryEngine())
+            baseline_report = evaluator.evaluate_baseline(queries, top_k=args.top_k, record_type="chunk")
+            assisted_report = evaluator.evaluate_pageindex_assisted(
+                summarized_tree,
+                queries,
+                section_top_k=args.section_top_k,
+                top_k=args.top_k,
+                record_type="chunk",
+            )
+            result.retrieval_evaluation_succeeded = True
+            query_payload["succeeded"] = True
+            query_payload["baseline"] = {
+                "metrics": asdict(baseline_report.metrics),
+                "per_query": [asdict(item) for item in baseline_report.per_query],
+            }
+            query_payload["pageindex_assisted"] = {
+                "metrics": asdict(assisted_report.metrics),
+                "per_query": [asdict(item) for item in assisted_report.per_query],
+            }
 
         save_artifacts(
             output_dir=doc_folder,
@@ -369,18 +469,7 @@ def process_document(
             ldus=ldus,
             chunks=chunks,
             tree=summarized_tree,
-            query_payload={
-                "collection_name": collection_name,
-                "queries": [asdict(query) for query in queries],
-                "baseline": {
-                    "metrics": asdict(baseline_report.metrics),
-                    "per_query": [asdict(item) for item in baseline_report.per_query],
-                },
-                "pageindex_assisted": {
-                    "metrics": asdict(assisted_report.metrics),
-                    "per_query": [asdict(item) for item in assisted_report.per_query],
-                },
-            },
+            query_payload=query_payload,
         )
 
         result.success = True
@@ -423,6 +512,8 @@ def write_summary_reports(output_dir: Path, results: list[DocumentEvalResult]) -
 
 def print_run_summary(results: list[DocumentEvalResult]) -> None:
     successes = sum(1 for result in results if result.success)
+    retrieval_skips = sum(1 for result in results if result.retrieval_evaluation_skipped)
+    retrieval_failures = sum(1 for result in results if result.retrieval_evaluation_failed)
     failures = len(results) - successes
     failure_counter = Counter(
         result.failure_reason for result in results if result.failure_reason
@@ -432,6 +523,8 @@ def print_run_summary(results: list[DocumentEvalResult]) -> None:
     print("\nBatch summary")
     print(f"successes={successes}")
     print(f"failures={failures}")
+    print(f"retrieval_evaluation_skips={retrieval_skips}")
+    print(f"retrieval_evaluation_failures={retrieval_failures}")
     if common_failures:
         formatted = "; ".join(f"{reason} ({count})" for reason, count in common_failures)
     else:
@@ -448,12 +541,24 @@ def main() -> int:
     output_dir = (args.output_dir or default_output_dir()).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    LOGGER.info("Loading selected document list from %s", csv_path)
-    try:
-        rows = load_selected_rows(csv_path, args.max_docs)
-    except Exception as exc:
-        LOGGER.error("Failed to read CSV %s: %s", csv_path, exc)
-        return 1
+    rows: list[dict[str, str]]
+    pdf_paths: list[Path]
+    if args.pdf_paths:
+        try:
+            pdf_paths = resolve_explicit_pdf_paths(args.pdf_paths)
+        except Exception as exc:
+            LOGGER.error("Failed to resolve explicit PDF paths: %s", exc)
+            return 1
+        rows = [{"file": str(path)} for path in pdf_paths]
+        LOGGER.info("Using %s explicitly selected PDF(s)", len(pdf_paths))
+    else:
+        LOGGER.info("Loading selected document list from %s", csv_path)
+        try:
+            rows = load_selected_rows(csv_path, args.max_docs)
+        except Exception as exc:
+            LOGGER.error("Failed to read CSV %s: %s", csv_path, exc)
+            return 1
+        pdf_paths = [resolve_pdf_path((row.get("file") or "").strip(), data_dir) for row in rows]
 
     save_json(output_dir / "input_rows.json", rows)
     summary_backend = build_summary_backend(args)
@@ -467,6 +572,9 @@ def main() -> int:
             result = DocumentEvalResult(
                 file_path="",
                 doc_id=None,
+                document_class=None,
+                retrieval_query_derivation_expected=False,
+                section_inference_mode=None,
                 success=False,
                 failure_reason=reason,
                 page_count=0,
@@ -475,18 +583,24 @@ def main() -> int:
                 pageindex_node_count=0,
                 summaries_generated=False,
                 vector_ingestion_succeeded=False,
+                retrieval_evaluation_attempted=False,
                 retrieval_evaluation_succeeded=False,
+                retrieval_evaluation_failed=False,
+                retrieval_evaluation_failure_reason=None,
+                retrieval_evaluation_skipped=False,
+                retrieval_evaluation_skip_reason=None,
                 artifacts_dir=str(output_dir / f"row_{index}"),
             )
             save_json(Path(result.artifacts_dir) / "document_report.json", asdict(result))
             results.append(result)
             continue
 
-        pdf_path = resolve_pdf_path(file_name, data_dir)
+        pdf_path = pdf_paths[index - 1]
         LOGGER.info("(%s/%s) %s", index, len(rows), pdf_path.name)
         results.append(
             process_document(
                 pdf_path=pdf_path,
+                selection_row=row,
                 args=args,
                 summary_backend=summary_backend,
                 batch_output_dir=output_dir,

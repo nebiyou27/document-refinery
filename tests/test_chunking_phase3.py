@@ -28,6 +28,7 @@ from src.chunking import (
     VectorStoreMatch,
 )
 from src.chunking.page_index import PageIndexTree
+from src.chunking.sections import SectionInferenceMode, SectionPathInferer
 from src.models.chunking import Chunk, LDU, LDUKind
 from src.models.extracted_document import (
     ExtractedDocument,
@@ -881,6 +882,46 @@ def test_section_path_inference_requires_body_after_unnumbered_heading() -> None
     assert ldus[1].section_path == ()
     assert ldus[2].section_path == ("Monthly Highlights",)
     assert ldus[3].section_path == ("Monthly Highlights",)
+
+
+def test_relaxed_section_path_inference_accepts_heading_followed_by_table() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 100, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 1},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Revenue by Segment",
+                bbox=(0.0, 0.0, 80.0, 18.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+        ],
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 26.0, 120.0, 80.0),
+                content_hash="tbl1",
+                table_index=0,
+                rows=[["Segment", "2025"], ["Cards", "120"]],
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    strict_ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+    relaxed_ldus = ChunkingEngine(
+        section_inferer=SectionPathInferer(mode=SectionInferenceMode.relaxed)
+    ).build_ldus(_document_from_pages(page))
+
+    assert strict_ldus[0].section_path == ()
+    assert strict_ldus[1].section_path == ()
+    assert relaxed_ldus[0].section_path == ("Revenue by Segment",)
+    assert relaxed_ldus[1].section_path == ("Revenue by Segment",)
 
 
 def test_section_boundary_changes_across_pages_affect_paths_hashes_and_chunks() -> None:

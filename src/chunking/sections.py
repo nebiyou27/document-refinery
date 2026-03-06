@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 import re
 
 from src.models.chunking import LDUKind
@@ -29,6 +30,11 @@ class HeadingMatch:
     level: int
 
 
+class SectionInferenceMode(str, Enum):
+    strict = "strict"
+    relaxed = "relaxed"
+
+
 class SectionPathInferer:
     """Infers deterministic hierarchical section paths from extracted blocks."""
 
@@ -45,6 +51,9 @@ class SectionPathInferer:
     )
     _ISSUE_LABEL_RE = re.compile(r"^issue\s+no\.?\s+\S+", re.IGNORECASE)
     _MIN_REPEAT_PAGES = 3
+
+    def __init__(self, mode: SectionInferenceMode = SectionInferenceMode.strict) -> None:
+        self.mode = mode
 
     def infer_paths(self, candidates: list[SectionCandidate]) -> dict[str, tuple[str, ...]]:
         paths_by_id: dict[str, tuple[str, ...]] = {}
@@ -151,6 +160,12 @@ class SectionPathInferer:
         if vertical_gap < 4.0:
             return False
 
+        if self.mode == SectionInferenceMode.relaxed and next_candidate.kind in {
+            LDUKind.table,
+            LDUKind.figure,
+        }:
+            return True
+
         next_text = canonicalize_text(next_candidate.text)
         return self._looks_like_body_text(next_text)
 
@@ -189,6 +204,10 @@ class SectionPathInferer:
         if len(text.split()) >= 8:
             return True
         if text.endswith((".", "?", "!", ";")):
+            return True
+        if self.mode == SectionInferenceMode.relaxed and len(text) >= 20:
+            return True
+        if self.mode == SectionInferenceMode.relaxed and len(text.split()) >= 4:
             return True
         return False
 
