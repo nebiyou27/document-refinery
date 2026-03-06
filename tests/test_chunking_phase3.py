@@ -16,10 +16,12 @@ from src.chunking import (
     ChunkingEngine,
     OllamaSummaryBackend,
     PageIndexBuilder,
+    PageIndexQueryEngine,
     PageIndexSummarizer,
     SummaryBackendError,
     SummaryInput,
 )
+from src.chunking.page_index import PageIndexTree
 from src.models.chunking import LDU, LDUKind
 from src.models.extracted_document import (
     ExtractedDocument,
@@ -69,6 +71,10 @@ def _ldu(
         section_path=section_path,
         source_block_order=source_block_order,
     )
+
+
+def _node_by_path(tree: PageIndexTree, section_path: tuple[str, ...]):
+    return next(node for node in tree.nodes if node.section_path == section_path)
 
 
 class FakeSummaryBackend:
@@ -617,3 +623,81 @@ def test_ollama_backend_handles_failures_gracefully() -> None:
     summarized = PageIndexSummarizer(backend).summarize_tree(tree=tree, ldus=ldus)
     operations = next(node for node in summarized.nodes if node.section_path == ("6 Operations",))
     assert operations.summary is None
+
+
+def test_page_index_query_selects_relevant_flat_sections() -> None:
+    ldus = [
+        _ldu(text="Revenue rose sharply.", page_number=1, source_block_order=0, section_path=("1 Overview",)),
+        _ldu(text="Precision improved.", page_number=2, source_block_order=0, section_path=("2 Retrieval Precision",)),
+        _ldu(text="Operational notes.", page_number=3, source_block_order=0, section_path=("3 Operations",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    _node_by_path(tree, ("1 Overview",)).summary = "High-level revenue trends."
+    _node_by_path(tree, ("2 Retrieval Precision",)).summary = "Precision metrics and benchmark gains."
+    _node_by_path(tree, ("3 Operations",)).summary = "Routine operational notes."
+
+    results = PageIndexQueryEngine().query(tree=tree, topic="retrieval precision metrics")
+
+    assert results[0].section_path == ("2 Retrieval Precision",)
+
+
+def test_page_index_query_selects_relevant_nested_sections() -> None:
+    ldus = [
+        _ldu(text="Results overview.", page_number=1, source_block_order=0, section_path=("3 Results",)),
+        _ldu(text="Precision rose from 0.82 to 0.90.", page_number=2, source_block_order=0, section_path=("3 Results", "3.2 Retrieval Precision")),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    _node_by_path(tree, ("3 Results",)).summary = "Overall evaluation results."
+    _node_by_path(tree, ("3 Results", "3.2 Retrieval Precision")).summary = "Retrieval precision improved materially."
+
+    results = PageIndexQueryEngine().query(tree=tree, topic="precision improvement")
+
+    assert results[0].section_path == ("3 Results", "3.2 Retrieval Precision")
+
+
+def test_page_index_query_ignores_synthetic_root_node() -> None:
+    ldus = [
+        _ldu(text="Overview text.", page_number=1, source_block_order=0, section_path=("1 Overview",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    root = _node_by_path(tree, ())
+    root.summary = "Root should never be returned."
+    _node_by_path(tree, ("1 Overview",)).summary = "Overview summary."
+
+    results = PageIndexQueryEngine().query(tree=tree, topic="overview")
+
+    assert all(match.node_id != tree.root_id for match in results)
+
+
+def test_page_index_query_returns_top_three_in_deterministic_order() -> None:
+    ldus = [
+        _ldu(text="Finance data.", page_number=1, source_block_order=0, section_path=("1 Finance",)),
+        _ldu(text="Finance risk analysis.", page_number=2, source_block_order=0, section_path=("2 Financial Risk",)),
+        _ldu(text="Financial controls review.", page_number=3, source_block_order=0, section_path=("3 Controls",)),
+        _ldu(text="Human resources update.", page_number=4, source_block_order=0, section_path=("4 HR",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    _node_by_path(tree, ("1 Finance",)).summary = "Finance metrics."
+    _node_by_path(tree, ("2 Financial Risk",)).summary = "Financial risk exposure."
+    _node_by_path(tree, ("3 Controls",)).summary = "Financial controls and compliance."
+    _node_by_path(tree, ("4 HR",)).summary = "Workforce updates."
+
+    results = PageIndexQueryEngine().query(tree=tree, topic="financial risk controls", top_k=3)
+
+    assert [match.section_path for match in results] == [
+        ("2 Financial Risk",),
+        ("3 Controls",),
+        ("1 Finance",),
+    ]
+
+
+def test_page_index_query_handles_missing_summaries() -> None:
+    ldus = [
+        _ldu(text="Methods section.", page_number=1, source_block_order=0, section_path=("1 Methods",)),
+        _ldu(text="Results section.", page_number=2, source_block_order=0, section_path=("2 Results",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+
+    results = PageIndexQueryEngine().query(tree=tree, topic="results")
+
+    assert results[0].section_path == ("2 Results",)

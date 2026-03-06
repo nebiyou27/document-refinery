@@ -2,6 +2,7 @@
 
 from .engine import ChunkingConfig, ChunkingEngine
 from .page_index import PageIndexBuilder, PageIndexTree
+from .page_index_query import PageIndexMatch, PageIndexQueryEngine
 from .page_index_summarizer import (
     OllamaSummaryBackend,
     PageIndexSummarizer,
@@ -16,6 +17,8 @@ __all__ = [
     "ChunkingConfig",
     "ChunkingEngine",
     "PageIndexBuilder",
+    "PageIndexMatch",
+    "PageIndexQueryEngine",
     "PageIndexTree",
     "OllamaSummaryBackend",
     "PageIndexSummarizer",
