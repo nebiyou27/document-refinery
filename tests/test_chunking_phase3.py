@@ -14,7 +14,11 @@ from src.chunking import (
     ChunkValidator,
     ChunkingConfig,
     ChunkingEngine,
+    OllamaSummaryBackend,
     PageIndexBuilder,
+    PageIndexSummarizer,
+    SummaryBackendError,
+    SummaryInput,
 )
 from src.models.chunking import LDU, LDUKind
 from src.models.extracted_document import (
@@ -65,6 +69,29 @@ def _ldu(
         section_path=section_path,
         source_block_order=source_block_order,
     )
+
+
+class FakeSummaryBackend:
+    def summarize(self, summary_input: SummaryInput) -> str:
+        text = " ".join(summary_input.source_text.split())
+        preview = text[:39]
+        return f"{summary_input.title}: {preview}"
+
+
+class MockOllamaClient:
+    def __init__(self, response: dict[str, object]) -> None:
+        self.response = response
+        self.calls: list[dict[str, object]] = []
+
+    def chat(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        return self.response
+
+
+class FailingOllamaClient:
+    def chat(self, **kwargs: object) -> dict[str, object]:
+        _ = kwargs
+        raise RuntimeError("connection lost")
 
 
 def test_ldu_content_hash_is_stable_and_page_agnostic() -> None:
@@ -469,3 +496,124 @@ def test_page_index_builder_attaches_ldus_to_leaf_and_aggregates_page_ranges() -
     assert discussion.end_page == 3
     assert root.start_page == 1
     assert root.end_page == 3
+
+
+def test_page_index_summarization_integrates_with_tree() -> None:
+    ldus = [
+        _ldu(text="Key findings show stable performance across cohorts.", page_number=1, source_block_order=0, section_path=("1 Overview",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+
+    summarized = PageIndexSummarizer(FakeSummaryBackend()).summarize_tree(tree=tree, ldus=ldus)
+    overview = next(node for node in summarized.nodes if node.section_path == ("1 Overview",))
+    root = next(node for node in summarized.nodes if node.section_path == ())
+
+    assert overview.summary == "1 Overview: Key findings show stable performance ac"
+    assert root.summary is None
+
+
+def test_page_index_summarization_uses_direct_ldus_for_leaf_nodes() -> None:
+    ldus = [
+        _ldu(text="Precision improved by 8 percent over baseline.", page_number=2, source_block_order=0, section_path=("3 Results", "3.2 Precision")),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+
+    summarized = PageIndexSummarizer(FakeSummaryBackend()).summarize_tree(tree=tree, ldus=ldus)
+    node = next(node for node in summarized.nodes if node.section_path == ("3 Results", "3.2 Precision"))
+
+    assert node.summary == "3.2 Precision: Precision improved by 8 percent over ba"
+
+
+def test_page_index_summarization_supports_parent_nodes_with_child_only_content() -> None:
+    ldus = [
+        _ldu(text="Child one content explains the first metric.", page_number=1, source_block_order=0, section_path=("2 Results", "2.1 Precision")),
+        _ldu(text="Child two content explains the recall metric.", page_number=1, source_block_order=1, section_path=("2 Results", "2.2 Recall")),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+
+    summarized = PageIndexSummarizer(FakeSummaryBackend()).summarize_tree(tree=tree, ldus=ldus)
+    parent = next(node for node in summarized.nodes if node.section_path == ("2 Results",))
+    precision = next(node for node in summarized.nodes if node.section_path == ("2 Results", "2.1 Precision"))
+    recall = next(node for node in summarized.nodes if node.section_path == ("2 Results", "2.2 Recall"))
+
+    assert precision.summary == "2.1 Precision: Child one content explains the first me"
+    assert recall.summary == "2.2 Recall: Child two content explains the recall m"
+    assert parent.summary == "2 Results: 2.1 Precision: Child one content explai"
+
+
+def test_page_index_summarization_is_deterministic_with_fake_backend() -> None:
+    ldus = [
+        _ldu(text="Deterministic source text for summary generation.", page_number=1, source_block_order=0, section_path=("4 Discussion",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    summarizer = PageIndexSummarizer(FakeSummaryBackend())
+
+    first = summarizer.summarize_tree(tree=tree, ldus=ldus)
+    second = summarizer.summarize_tree(tree=tree, ldus=ldus)
+
+    first_summaries = [node.summary for node in sorted(first.nodes, key=lambda node: node.order_index)]
+    second_summaries = [node.summary for node in sorted(second.nodes, key=lambda node: node.order_index)]
+
+    assert first_summaries == second_summaries
+
+
+def test_ollama_backend_wires_through_page_index_summarizer() -> None:
+    ldus = [
+        _ldu(text="Revenue increased to 120 million Birr in 2025.", page_number=1, source_block_order=0, section_path=("5 Finance",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    client = MockOllamaClient(response={"message": {"content": "Revenue increased to 120 million Birr in 2025."}})
+    backend = OllamaSummaryBackend(client=client)
+
+    summarized = PageIndexSummarizer(backend).summarize_tree(tree=tree, ldus=ldus)
+    finance = next(node for node in summarized.nodes if node.section_path == ("5 Finance",))
+
+    assert finance.summary == "Revenue increased to 120 million Birr in 2025."
+    assert len(client.calls) == 1
+    assert client.calls[0]["model"] == "qwen3:1.7b"
+    assert client.calls[0]["keep_alive"] == "0s"
+
+
+def test_ollama_backend_uses_mocked_client_response_and_configuration() -> None:
+    client = MockOllamaClient(response={"message": {"content": "Short factual summary."}})
+    backend = OllamaSummaryBackend(client=client, model="qwen3:1.7b", keep_alive="30s")
+
+    summary = backend.summarize(
+        SummaryInput(
+            node_id="node-1",
+            title="3 Results",
+            section_path=("3 Results",),
+            source_text="Results improved on the validation split.",
+        )
+    )
+
+    assert summary == "Short factual summary."
+    assert client.calls[0]["model"] == "qwen3:1.7b"
+    assert client.calls[0]["keep_alive"] == "30s"
+    assert client.calls[0]["options"] == {"temperature": 0}
+    messages = client.calls[0]["messages"]
+    assert isinstance(messages, list)
+    assert "retrieval summaries" in messages[0]["content"]
+    assert "Section: 3 Results" in messages[1]["content"]
+
+
+def test_ollama_backend_handles_failures_gracefully() -> None:
+    ldus = [
+        _ldu(text="System reliability remained stable.", page_number=1, source_block_order=0, section_path=("6 Operations",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    backend = OllamaSummaryBackend(client=FailingOllamaClient())
+
+    with pytest.raises(SummaryBackendError):
+        backend.summarize(
+            SummaryInput(
+                node_id="node-1",
+                title="6 Operations",
+                section_path=("6 Operations",),
+                source_text="System reliability remained stable.",
+            )
+        )
+
+    summarized = PageIndexSummarizer(backend).summarize_tree(tree=tree, ldus=ldus)
+    operations = next(node for node in summarized.nodes if node.section_path == ("6 Operations",))
+    assert operations.summary is None

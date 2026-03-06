@@ -2,6 +2,13 @@
 
 from .engine import ChunkingConfig, ChunkingEngine
 from .page_index import PageIndexBuilder, PageIndexTree
+from .page_index_summarizer import (
+    OllamaSummaryBackend,
+    PageIndexSummarizer,
+    SummaryBackend,
+    SummaryBackendError,
+    SummaryInput,
+)
 from .sections import SectionCandidate, SectionPathInferer
 from .validator import ChunkValidationError, ChunkValidator
 
@@ -10,8 +17,13 @@ __all__ = [
     "ChunkingEngine",
     "PageIndexBuilder",
     "PageIndexTree",
+    "OllamaSummaryBackend",
+    "PageIndexSummarizer",
     "SectionCandidate",
     "SectionPathInferer",
+    "SummaryBackend",
+    "SummaryBackendError",
+    "SummaryInput",
     "ChunkValidationError",
     "ChunkValidator",
 ]
