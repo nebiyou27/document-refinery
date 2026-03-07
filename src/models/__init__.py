@@ -21,6 +21,7 @@ from .extracted_document import (
     TableBlock,
     TextBlock,
 )
+from .fact_table import FactTable, FactTableEntry
 
 __all__ = [
     "DocumentProfile",
@@ -43,6 +44,8 @@ __all__ = [
     "ExtractedPage",
     "ExtractionMetadata",
     "FigureBlock",
+    "FactTable",
+    "FactTableEntry",
     "TableBlock",
     "TextBlock",
 ]
