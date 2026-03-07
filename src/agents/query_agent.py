@@ -149,6 +149,18 @@ class QueryAgent:
                 failure_reason="Retrieved evidence did not yield an answerable snippet",
             )
 
+        if not self._passes_relevance_gate(query, answer, retrieval_matches):
+            return QueryAgentResult(
+                query=query,
+                status="unverifiable",
+                answer=None,
+                provenance_chain=None,
+                retrieval_matches=retrieval_matches,
+                page_index_matches=page_index_matches,
+                route=route,
+                failure_reason="Answer failed relevance gate (contradiction or low overlap)",
+            )
+
         return QueryAgentResult(
             query=query,
             status="verified",
@@ -172,10 +184,8 @@ class QueryAgent:
         seen_record_ids: set[str] = set()
         retrieval_queries = self._build_assisted_retrieval_queries(query)
         intent = self._detect_query_intent(canonicalize_text(query).lower())
-        per_query_top_k = top_k
-        if len(retrieval_queries) > 1 or any(intent.values()):
-            per_query_top_k = max(top_k, 3)
-        max_candidates = max(top_k, top_k * len(retrieval_queries))
+        per_query_top_k = max(top_k * 3, 10)  # Broader pool for hybrid reranking
+        max_candidates = max(top_k * 4, 20)
 
         for section_match in page_index_matches:
             for retrieval_query in retrieval_queries:
@@ -205,9 +215,7 @@ class QueryAgent:
         collected: list[VectorStoreMatch] = []
         seen_record_ids: set[str] = set()
         intent = self._detect_query_intent(canonicalize_text(query).lower())
-        per_query_top_k = top_k
-        if len(retrieval_queries) > 1 or any(intent.values()):
-            per_query_top_k = max(top_k, 3)
+        per_query_top_k = max(top_k * 3, 10)  # Broader pool for hybrid reranking
         for retrieval_query in retrieval_queries:
             vector_matches = self.vector_backend.query(
                 retrieval_query,
@@ -475,9 +483,43 @@ class QueryAgent:
                     score += 1
                 if any(marker in snippet for marker in ("|", ";", "table", "highlights")):
                     score += 1
+                
+                financial_sections = (
+                    "financial highlights", 
+                    "financial performance", 
+                    "results", 
+                    "statement of profit", 
+                    "profit and loss", 
+                    "notes to the financial statements"
+                )
+                if any(sec in section_text for sec in financial_sections):
+                    score += 4
 
             if is_content_query and self._looks_like_non_core_section(haystack):
                 score -= 4
+
+            company_terms = ("ethiopian re", "ethiopian reinsurance", "the company")
+            industry_terms = ("industry", "insurance industry", "economic profile", "global reinsurance sector")
+            
+            has_company_query = any(c in normalized_query for c in company_terms)
+            if has_company_query:
+                if any(c in haystack for c in company_terms):
+                    score += 5
+                if any(i in haystack for i in industry_terms):
+                    score -= 5
+
+            financial_pairs = [
+                ("before tax", "after tax"),
+                ("after tax", "before tax"),
+                ("combined ratio", "loss ratio"),
+                ("loss ratio", "combined ratio"),
+                ("company", "industry"),
+                ("industry", "company"),
+            ]
+            for required, forbidden in financial_pairs:
+                if required in normalized_query and forbidden in haystack:
+                    if required not in haystack:
+                        score -= 5
 
             if score > 0:
                 any_positive = True
@@ -722,3 +764,54 @@ class QueryAgent:
             "table of contents",
         )
         return any(marker in text for marker in non_core_markers)
+
+    def _passes_relevance_gate(self, query: str, answer: str, retrieval_matches: tuple[VectorStoreMatch, ...]) -> bool:
+        normalized_query = canonicalize_text(query).lower()
+        normalized_answer = canonicalize_text(answer).lower()
+        query_tokens = self._query_tokens(normalized_query)
+        
+        if not query_tokens:
+            return True
+            
+        score = 0
+        overlap = sum(1 for token in query_tokens if token in normalized_answer)
+        score += overlap
+        
+        for match in retrieval_matches:
+            section_text = self._section_text(match)
+            if any(token in section_text for token in query_tokens):
+                score += 1
+                break
+                
+        financial_pairs = [
+            ("before tax", "after tax"),
+            ("after tax", "before tax"),
+            ("combined ratio", "loss ratio"),
+            ("loss ratio", "combined ratio"),
+            ("company", "industry"),
+            ("industry", "company"),
+        ]
+        
+        for required, forbidden in financial_pairs:
+            if required in normalized_query and forbidden in normalized_answer:
+                if required not in normalized_answer:
+                    score -= 5
+
+        company_terms = ("ethiopian re", "ethiopian reinsurance", "the company")
+        industry_terms = ("industry", "insurance industry", "economic profile", "global reinsurance sector")
+        
+        has_company_query = any(c in normalized_query for c in company_terms)
+        if has_company_query:
+            if any(c in normalized_answer for c in company_terms):
+                score += 3
+            elif any(i in normalized_answer for i in industry_terms):
+                score -= 3
+        
+        entities = set(re.findall(r"\b\d+\b", normalized_query))
+        for ent in entities:
+            if ent in normalized_answer:
+                score += 2
+            else:
+                score -= 1
+                
+        return score >= 1

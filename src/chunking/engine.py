@@ -382,8 +382,39 @@ class ChunkingEngine:
         if not isinstance(block, TableBlock):
             raise TypeError("Expected TableBlock")
         header_row = self._table_header_row(block)
-        table_text = "\n".join(" | ".join(cell for cell in row) for row in block.rows)
+        
+        section_name = section_path[-1] if section_path else "Table"
+        serialized_rows: list[str] = []
+        
+        for r_idx, row in enumerate(block.rows):
+            if r_idx == 0:
+                serialized_rows.append(" | ".join(str(cell).strip() for cell in row))
+                continue
+            
+            row_label = str(row[0]).strip() if row else ""
+            if not row_label:
+                serialized_rows.append(" | ".join(str(cell).strip() for cell in row))
+                continue
+                
+            row_items_emitted = False
+            for c_idx, cell in enumerate(row):
+                if c_idx == 0:
+                    continue
+                
+                col_header = header_row[c_idx] if c_idx < len(header_row) else f"Column {c_idx}"
+                cell_val = str(cell).strip()
+                if not cell_val or cell_val == "-" or cell_val.lower() in ("n/a", "none"):
+                    continue
+                    
+                serialized_rows.append(f"Table: {section_name} | Metric: {row_label} | {col_header}: {cell_val}")
+                row_items_emitted = True
+                
+            if not row_items_emitted:
+                serialized_rows.append(" | ".join(str(cell).strip() for cell in row))
+
+        table_text = "\n".join(serialized_rows) if serialized_rows else "\n".join(" | ".join(str(cell).strip() for cell in row) for row in block.rows)
         normalized_table_text = canonicalize_text(table_text)
+        
         return LDU(
             doc_id=doc_id,
             page_number=block.page_number,

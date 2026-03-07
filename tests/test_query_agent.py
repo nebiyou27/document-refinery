@@ -488,3 +488,133 @@ def test_query_agent_definition_query_prefers_definition_over_author_list() -> N
     assert result.status == "verified"
     assert result.answer is not None
     assert result.answer.startswith("Leverage is")
+
+
+def test_query_agent_penalizes_near_miss_financial_terms() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"profit before tax 2018": [_page_index_match(("4 Financials",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("profit before tax 2018", ("4 Financials",)): [
+                _vector_match(
+                    "chunk-wrong",
+                    "The profit after tax for the year 2018 was 50 million.",
+                    section_path=("4 Financials",),
+                ),
+                _vector_match(
+                    "chunk-right",
+                    "The profit before tax for the year 2018 was 78.6 million.",
+                    section_path=("4 Financials",),
+                ),
+            ],
+            ("profit before tax 2018 financial highlights", ("4 Financials",)): []
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="profit before tax 2018",
+        top_k=1,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert "78.6 million" in result.answer
+    assert "50 million" not in result.answer
+
+
+def test_query_agent_relevance_gate_catches_contradictions() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"company revenue": [_page_index_match(("Overview",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("company revenue", ("Overview",)): [
+                _vector_match(
+                    "chunk-wrong",
+                    "The industry revenue shrank by 5% this year.",
+                    section_path=("Overview",),
+                ),
+            ]
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="company revenue",
+        top_k=1,
+    )
+
+    assert result.status == "unverifiable"
+    assert result.answer is None
+    assert "Answer failed relevance gate" in str(result.failure_reason)
+
+
+def test_query_agent_company_vs_industry_reranking() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"ethiopian re profit before tax 2018": [_page_index_match(("4 Financials",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("ethiopian re profit before tax 2018", ("4 Financials",)): [
+                _vector_match(
+                    "chunk-industry",
+                    "The insurance industry saw a global profit before tax of 500 million in 2018.",
+                    section_path=("4 Financials", "Industry Overview"),
+                ),
+                _vector_match(
+                    "chunk-company",
+                    "Ethiopian Re recorded a profit before tax of 78.6 million in 2018.",
+                    section_path=("4 Financials", "Company Results"),
+                ),
+            ],
+            ("ethiopian re profit before tax 2018 financial highlights", ("4 Financials",)): []
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="ethiopian re profit before tax 2018",
+        top_k=1,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert "78.6 million" in result.answer
+    assert "500 million" not in result.answer
+
+
+def test_query_agent_financial_section_boost() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"total assets 2018": [_page_index_match(("Financials",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("total assets 2018", ("Financials",)): [
+                _vector_match(
+                    "chunk-narrative",
+                    "Total assets grew by 10% in 2018 due to acquisitions.",
+                    section_path=("Letter to Shareholders",),
+                ),
+                _vector_match(
+                    "chunk-table",
+                    "Total assets for the year 2018: 1.2 billion.",
+                    section_path=("Financial Highlights",),
+                ),
+            ],
+            ("total assets 2018 financial highlights", ("Financials",)): []
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="total assets 2018",
+        top_k=1,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert "1.2 billion" in result.answer
+    assert "grew by 10%" not in result.answer
+
