@@ -11,7 +11,7 @@ if str(ROOT) not in sys.path:
 
 from src.agents.fact_table_extractor import FactTableExtractor
 from src.models.extracted_document import ExtractedDocument, ExtractedPage, ExtractionMetadata, TableBlock
-from src.storage import FactTableSqliteWriter
+from src.storage import FactTableSqliteWriter, canonicalize_fact_subject
 
 
 def _metadata() -> ExtractionMetadata:
@@ -76,7 +76,15 @@ def test_fact_table_sqlite_writer_persists_queryable_rows(tmp_path: Path) -> Non
 
         cash_row = connection.execute(
             """
-            SELECT subject, predicate, period_label, value_text, value_number, normalized_subject, provenance_json
+            SELECT
+                subject,
+                predicate,
+                period_label,
+                value_text,
+                value_number,
+                normalized_subject,
+                canonical_subject,
+                provenance_json
             FROM fact_values
             WHERE normalized_subject = ? AND normalized_predicate = ?
             ORDER BY period_label
@@ -90,8 +98,9 @@ def test_fact_table_sqlite_writer_persists_queryable_rows(tmp_path: Path) -> Non
         assert cash_row[3] == "15,194,080"
         assert cash_row[4] == 15194080.0
         assert cash_row[5] == "cash and cash equivalents"
+        assert cash_row[6] == "cash and cash equivalents"
 
-        provenance = json.loads(cash_row[6])
+        provenance = json.loads(cash_row[7])
         assert provenance["document_name"] == "finance.pdf"
         assert provenance["page_number"] == 1
     finally:
@@ -120,3 +129,44 @@ def test_fact_table_sqlite_writer_deduplicates_duplicate_fact_ids(tmp_path: Path
         assert row_count == (1,)
     finally:
         connection.close()
+
+
+def test_fact_table_sqlite_writer_adds_canonical_subject_for_ocr_collapsed_labels(tmp_path: Path) -> None:
+    document = _document_with_table(
+        [
+            ["Category", "30June2022 Birr'ooo"],
+            ["Cashand cashequivalentsat the endoftheyear", "28,191,157"],
+        ]
+    )
+    fact_table = FactTableExtractor().extract(document)
+    db_path = tmp_path / "fact_table.sqlite"
+
+    FactTableSqliteWriter().write(fact_table=fact_table, db_path=db_path)
+
+    connection = sqlite3.connect(db_path)
+    try:
+        row = connection.execute(
+            """
+            SELECT subject, normalized_subject, canonical_subject, value_number
+            FROM fact_values
+            WHERE canonical_subject = ? AND normalized_predicate = ?
+            """,
+            (canonicalize_fact_subject("cash and cash equivalents at the end of the year"), "value"),
+        ).fetchone()
+        assert row == (
+            "Cashand cashequivalentsat the endoftheyear",
+            "cashand cashequivalentsat the endoftheyear",
+            "cash and cash equivalents at end of year",
+            28191157.0,
+        )
+    finally:
+        connection.close()
+
+
+def test_canonicalize_fact_subject_maps_human_and_ocr_collapsed_forms_together() -> None:
+    assert canonicalize_fact_subject("Cashand cashequivalentsat the endoftheyear") == (
+        "cash and cash equivalents at end of year"
+    )
+    assert canonicalize_fact_subject("cash and cash equivalents at the end of the year") == (
+        "cash and cash equivalents at end of year"
+    )

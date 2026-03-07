@@ -10,6 +10,30 @@ import re
 from src.models import FactTable
 from src.utils.hashing import canonicalize_text
 
+LIGHT_STOPWORDS = frozenset({"a", "an", "the"})
+COLLAPSED_SUBJECT_REPLACEMENTS = (
+    ("cashand", "cash and"),
+    ("cashandcash", "cash and cash"),
+    ("cashequivalentsat", "cash equivalents at"),
+    ("cashequivalents", "cash equivalents"),
+    ("atthebeginningoftheyear", "at the beginning of the year"),
+    ("attheendoftheyear", "at the end of the year"),
+    ("beginningoftheyear", "beginning of the year"),
+    ("endoftheyear", "end of the year"),
+)
+
+
+def canonicalize_fact_subject(value: str) -> str:
+    """Produce a human-query-friendly lookup form for fact subjects."""
+    normalized = canonicalize_text(value).lower()
+    normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
+    normalized = canonicalize_text(normalized)
+    for source, replacement in COLLAPSED_SUBJECT_REPLACEMENTS:
+        normalized = normalized.replace(source, replacement)
+    normalized = canonicalize_text(normalized)
+    tokens = [token for token in normalized.split() if token not in LIGHT_STOPWORDS]
+    return canonicalize_text(" ".join(tokens))
+
 
 class FactTableSqliteWriter:
     """Persist normalized fact-table entries into a query-friendly SQLite schema."""
@@ -48,6 +72,7 @@ class FactTableSqliteWriter:
                 period_label TEXT,
                 notes_ref TEXT,
                 normalized_subject TEXT NOT NULL,
+                canonical_subject TEXT NOT NULL,
                 normalized_predicate TEXT NOT NULL,
                 provenance_json TEXT NOT NULL,
                 FOREIGN KEY (doc_id) REFERENCES documents(doc_id)
@@ -56,10 +81,27 @@ class FactTableSqliteWriter:
             CREATE INDEX IF NOT EXISTS idx_fact_lookup
             ON fact_values(normalized_subject, normalized_predicate, period_label);
 
+            CREATE INDEX IF NOT EXISTS idx_fact_canonical_lookup
+            ON fact_values(canonical_subject, normalized_predicate, period_label);
+
             CREATE INDEX IF NOT EXISTS idx_fact_number
             ON fact_values(value_number);
             """
         )
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(fact_values)").fetchall()
+        }
+        if "canonical_subject" not in columns:
+            connection.execute(
+                "ALTER TABLE fact_values ADD COLUMN canonical_subject TEXT NOT NULL DEFAULT ''"
+            )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_fact_canonical_lookup
+                ON fact_values(canonical_subject, normalized_predicate, period_label)
+                """
+            )
 
     def _replace_document_rows(self, connection: sqlite3.Connection, *, fact_table: FactTable) -> None:
         if not fact_table.entries:
@@ -90,6 +132,7 @@ class FactTableSqliteWriter:
                 entry.column_label,
                 self._extract_notes_ref(entry.row_label),
                 self._normalize_label(entry.row_label),
+                canonicalize_fact_subject(entry.row_label),
                 "value",
                 entry.provenance.model_dump_json(),
             )
@@ -109,10 +152,11 @@ class FactTableSqliteWriter:
                 period_label,
                 notes_ref,
                 normalized_subject,
+                canonical_subject,
                 normalized_predicate,
                 provenance_json
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             list(deduped_rows.values()),
         )
