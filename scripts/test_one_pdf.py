@@ -15,24 +15,18 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.agents.extractor import run_extraction
-from src.agents.audit_mode import AuditMode
-from src.agents.query_agent import QueryAgent, QueryAgentResult
+from src.agents.phase4_pipeline import Phase4Pipeline, Phase4QueryRun
 from src.chunking import (
     ChromaVectorStore,
     ChunkingConfig,
     ChunkingEngine,
     OllamaSummaryBackend,
-    PageIndexBuilder,
-    PageIndexQueryEngine,
-    PageIndexSummarizer,
     SummaryBackend,
     SummaryInput,
     VectorStoreError,
 )
-from src.chunking.page_index import PageIndexTree
 from src.chunking.vector_store import EmbeddingBackend, VectorStoreMatch
-from src.models.chunking import Chunk, LDU, PageIndexNode
-from src.models.extracted_document import ExtractedDocument
+from src.models.chunking import PageIndexNode
 from src.utils.hashing import canonicalize_text
 
 
@@ -136,7 +130,7 @@ def build_summary_backend(args: argparse.Namespace) -> SummaryBackend:
     )
 
 
-def build_topics(tree: PageIndexTree, requested_topics: list[str]) -> list[str]:
+def build_topics(tree, requested_topics: list[str]) -> list[str]:
     topics = [topic.strip() for topic in requested_topics if topic.strip()]
     if topics:
         return topics[:3]
@@ -159,7 +153,7 @@ def build_topics(tree: PageIndexTree, requested_topics: list[str]) -> list[str]:
     return derived_topics[:3]
 
 
-def print_tree(tree: PageIndexTree) -> None:
+def print_tree(tree) -> None:
     print("\n== Sections / PageIndex Tree ==")
     nodes_by_parent: dict[str | None, list[PageIndexNode]] = {}
     for node in sorted(tree.nodes, key=lambda current: current.order_index):
@@ -179,7 +173,7 @@ def print_tree(tree: PageIndexTree) -> None:
     walk(None, 0)
 
 
-def print_chunk_previews(chunks: list[Chunk], limit: int = 8) -> None:
+def print_chunk_previews(chunks, limit: int = 8) -> None:
     print("\n== Chunk Previews ==")
     for chunk in chunks[:limit]:
         preview = canonicalize_text(chunk.text)
@@ -191,7 +185,7 @@ def print_chunk_previews(chunks: list[Chunk], limit: int = 8) -> None:
         )
 
 
-def print_node_summaries(tree: PageIndexTree) -> None:
+def print_node_summaries(tree) -> None:
     print("\n== Node Summaries ==")
     for node in sorted(tree.nodes, key=lambda current: current.order_index):
         if not node.section_path:
@@ -202,10 +196,11 @@ def print_node_summaries(tree: PageIndexTree) -> None:
 
 def print_query_results(
     *,
-    result: QueryAgentResult,
+    query_run: Phase4QueryRun,
     audit_result: dict[str, Any] | None,
     baseline_matches: list[VectorStoreMatch],
 ) -> None:
+    result = query_run.query_result
     print(f"\n== Query: {result.query} ==")
     print(f"Status: {result.status} route={result.route}")
     if result.answer:
@@ -241,21 +236,26 @@ def print_query_results(
 def save_artifacts(
     *,
     output_dir: Path,
-    extracted: ExtractedDocument,
-    ldus: list[LDU],
-    chunks: list[Chunk],
-    tree: PageIndexTree,
+    pipeline_result,
     query_outputs: list[dict[str, Any]],
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "extracted_document.json").write_text(extracted.model_dump_json(indent=2), encoding="utf-8")
-    (output_dir / "ldus.json").write_text(json.dumps([ldu.model_dump() for ldu in ldus], indent=2), encoding="utf-8")
+    (output_dir / "extracted_document.json").write_text(
+        pipeline_result.extracted.model_dump_json(indent=2), encoding="utf-8"
+    )
+    (output_dir / "ldus.json").write_text(
+        json.dumps([ldu.model_dump() for ldu in pipeline_result.ldus], indent=2), encoding="utf-8"
+    )
     (output_dir / "chunks.json").write_text(
-        json.dumps([chunk.model_dump() for chunk in chunks], indent=2),
+        json.dumps([chunk.model_dump() for chunk in pipeline_result.chunks], indent=2),
         encoding="utf-8",
     )
-    (output_dir / "page_index.json").write_text(tree.model_dump_json(indent=2), encoding="utf-8")
+    (output_dir / "page_index.json").write_text(pipeline_result.tree.model_dump_json(indent=2), encoding="utf-8")
     (output_dir / "retrieval_report.json").write_text(json.dumps(query_outputs, indent=2), encoding="utf-8")
+    (output_dir / "fact_table.json").write_text(
+        pipeline_result.fact_table.model_dump_json(indent=2),
+        encoding="utf-8",
+    )
 
 
 def main() -> int:
@@ -276,14 +276,7 @@ def main() -> int:
             print(f"ERROR: extraction failed for {pdf_path}: {message}", file=sys.stderr)
             return 1
 
-        engine = ChunkingEngine(config=ChunkingConfig())
-        ldus = engine.build_ldus(extracted)
-        chunks = engine.build_chunks(extracted, ldus=ldus)
-
-        tree = PageIndexBuilder().build(doc_id=extracted.doc_id, ldus=ldus)
         summary_backend = build_summary_backend(args)
-        summarized_tree = PageIndexSummarizer(summary_backend).summarize_tree(tree=tree, ldus=ldus)
-
         embedding_backend = HashEmbeddingBackend()
         collection_name = f"phase3_debug_{extracted.doc_id}"
         vector_store = ChromaVectorStore(
@@ -291,44 +284,42 @@ def main() -> int:
             collection_name=collection_name,
             persist_directory=args.persist_dir,
         )
-        vector_store.ingest_ldus(ldus)
-        vector_store.ingest_chunks(chunks)
-
-        topics = build_topics(summarized_tree, args.topics)
-        query_engine = PageIndexQueryEngine()
-        audit_mode = AuditMode()
-        query_agent = QueryAgent(
-            page_index_backend=query_engine,
-            vector_backend=vector_store,
+        phase4 = Phase4Pipeline(
+            vector_store=vector_store,
+            summary_backend=summary_backend,
+            chunking_engine=ChunkingEngine(config=ChunkingConfig()),
         )
+        if args.topics:
+            pipeline_result = phase4.run(extracted=extracted, queries=args.topics[:3], top_k=args.top_k)
+        else:
+            bootstrap_result = phase4.run(extracted=extracted, queries=[], top_k=args.top_k)
+            topics = build_topics(bootstrap_result.tree, [])
+            pipeline_result = phase4.run(extracted=extracted, queries=topics, top_k=args.top_k)
         query_outputs: list[dict[str, Any]] = []
 
         print(f"doc_id={extracted.doc_id}")
         print(f"file={pdf_path}")
         print(f"pages={extracted.page_count}")
-        print(f"ldus={len(ldus)} chunks={len(chunks)}")
+        print(f"ldus={len(pipeline_result.ldus)} chunks={len(pipeline_result.chunks)}")
+        print(f"facts={len(pipeline_result.fact_table.entries)}")
         print(f"collection={collection_name}")
 
-        print_tree(summarized_tree)
-        print_chunk_previews(chunks)
-        print_node_summaries(summarized_tree)
+        print_tree(pipeline_result.tree)
+        print_chunk_previews(list(pipeline_result.chunks))
+        print_node_summaries(pipeline_result.tree)
 
-        for topic in topics:
-            result = query_agent.answer(
-                tree=summarized_tree,
-                query=topic,
-                top_k=args.top_k,
-            )
-            baseline_matches = vector_store.query(topic, top_k=args.top_k)
-            audit_result = audit_mode.audit(result).__dict__
+        for query_run in pipeline_result.query_runs:
+            result = query_run.query_result
+            baseline_matches = vector_store.query(result.query, top_k=args.top_k)
+            audit_result = query_run.audit_result.__dict__
             print_query_results(
-                result=result,
+                query_run=query_run,
                 audit_result=audit_result,
                 baseline_matches=baseline_matches,
             )
             query_outputs.append(
                 {
-                    "topic": topic,
+                    "topic": result.query,
                     "status": result.status,
                     "route": result.route,
                     "answer": result.answer,
@@ -369,10 +360,7 @@ def main() -> int:
             output_dir = args.output_dir or Path("debug_runs") / pdf_stem
             save_artifacts(
                 output_dir=output_dir,
-                extracted=extracted,
-                ldus=ldus,
-                chunks=chunks,
-                tree=summarized_tree,
+                pipeline_result=pipeline_result,
                 query_outputs=query_outputs,
             )
             print(f"\nSaved debug artifacts to {output_dir}")
