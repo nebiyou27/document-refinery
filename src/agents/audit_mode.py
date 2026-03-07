@@ -154,10 +154,12 @@ class AuditMode:
         best_ratio = 0.0
         supporting_record_ids: list[str] = []
         matched_by_numeric_rule = False
+        entry_stats: list[dict[str, object]] = []
 
         for entry in entries:
             snippet_text = self._normalize_for_matching(entry.snippet)
             snippet_tokens = self._content_tokens(snippet_text)
+            snippet_numbers = self._numbers(snippet_text)
             support_ratio = self._support_ratio(claim_tokens, snippet_tokens)
             numeric_match = self._has_exact_numeric_support(claim_numbers, snippet_text)
             entity_overlap = self._entity_overlap_ratio(claim_tokens, snippet_tokens)
@@ -170,6 +172,18 @@ class AuditMode:
             if support_ratio <= 0:
                 if not supported:
                     continue
+            entry_stats.append(
+                {
+                    "record_id": entry.record_id,
+                    "snippet_tokens": snippet_tokens,
+                    "snippet_numbers": snippet_numbers,
+                    "support_ratio": support_ratio,
+                    "numeric_match": numeric_match,
+                    "entity_overlap": entity_overlap,
+                    "supported": supported,
+                    "effective_ratio": effective_ratio,
+                }
+            )
             if effective_ratio > best_ratio:
                 best_ratio = effective_ratio
                 supporting_record_ids = [entry.record_id]
@@ -179,6 +193,55 @@ class AuditMode:
                 matched_by_numeric_rule = matched_by_numeric_rule or (
                     supported and support_ratio < self.minimum_support_ratio
                 )
+
+        # Compound claims can require multiple snippets (e.g., "X was A and B").
+        # Greedily combine eligible snippets and score coverage on the union.
+        if len(entry_stats) >= 2:
+            ranked = sorted(
+                entry_stats,
+                key=lambda item: (
+                    float(item["effective_ratio"]),
+                    float(item["entity_overlap"]),
+                    1 if bool(item["numeric_match"]) else 0,
+                ),
+                reverse=True,
+            )
+            selected_ids: list[str] = []
+            selected_tokens: set[str] = set()
+            selected_numbers: set[str] = set()
+            current_ratio = 0.0
+
+            for stat in ranked:
+                if (
+                    not bool(stat["supported"])
+                    and not bool(stat["numeric_match"])
+                    and float(stat["entity_overlap"]) < 0.5
+                ):
+                    continue
+                candidate_tokens = selected_tokens | set(stat["snippet_tokens"])  # type: ignore[arg-type]
+                candidate_numbers = selected_numbers | set(stat["snippet_numbers"])  # type: ignore[arg-type]
+                candidate_ratio = self._support_ratio(claim_tokens, candidate_tokens)
+                ratio_gain = candidate_ratio > current_ratio
+                number_gain = len(candidate_numbers & claim_numbers) > len(selected_numbers & claim_numbers)
+                if not ratio_gain and not number_gain:
+                    continue
+                selected_ids.append(str(stat["record_id"]))
+                selected_tokens = candidate_tokens
+                selected_numbers = candidate_numbers
+                current_ratio = candidate_ratio
+
+            if selected_ids:
+                numeric_coverage_ratio = (
+                    len(selected_numbers & claim_numbers) / len(claim_numbers)
+                    if claim_numbers
+                    else 0.0
+                )
+                composite_supported = current_ratio >= self.minimum_support_ratio or numeric_coverage_ratio >= 0.5
+                composite_ratio = max(current_ratio, numeric_coverage_ratio)
+                if composite_supported and composite_ratio >= best_ratio:
+                    best_ratio = composite_ratio
+                    supporting_record_ids = selected_ids
+                    matched_by_numeric_rule = matched_by_numeric_rule or composite_ratio < self.minimum_support_ratio
 
         return AuditFinding(
             claim=claim,

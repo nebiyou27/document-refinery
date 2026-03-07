@@ -169,3 +169,21 @@ def test_verify_claim_returns_unverifiable_when_claim_is_not_supported() -> None
     assert verification.status == "unverifiable"
     assert verification.provenance_chain is None
     assert verification.failure_reason == "Claim not found in retrieved evidence"
+
+
+def test_audit_mode_combines_multiple_snippets_for_compound_claim() -> None:
+    result = _verified_result(
+        answer="Bread and Cereals: CPI weight 17.1% and year-on-year inflation 1.2% (march efy2017).",
+        snippets=[
+            "Bread and Cereals | Items Wight in CPI (%) | 17.1",
+            "Bread and Cereals | %change on Year - on - Year Inflation March EFY2016 compared with March EFY2017 | 1.2",
+        ],
+    )
+
+    audit = AuditMode().audit(result)
+
+    assert audit.status == "passed"
+    assert len(audit.findings) == 1
+    assert audit.findings[0].supported is True
+    assert audit.findings[0].support_ratio == 1.0
+    assert set(audit.findings[0].supporting_record_ids) == {"chunk-1", "chunk-2"}

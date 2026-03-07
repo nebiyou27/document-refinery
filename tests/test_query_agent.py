@@ -263,6 +263,45 @@ def test_query_agent_answers_fact_query_from_structured_sqlite(tmp_path: Path) -
     assert vector_backend.calls == []
 
 
+def test_query_agent_answers_cpi_weight_and_yoy_query_from_structured_sqlite(tmp_path: Path) -> None:
+    document = _document_with_table(
+        [
+            [
+                "CPI Items",
+                "Items Wight in CPI (%)",
+                "%change on Year - on - Year Inflation March EFY2016 compared with March EFY2017",
+                "%change in Month - to - Month inflation July EFY2017 compared to March EFY2017",
+            ],
+            ["Bread and Cereals", "17.1", "1.2", "1.4"],
+            ["Vegetables", "12.3", "6.1", "0.5"],
+        ]
+    )
+    db_path = tmp_path / "fact_table.sqlite"
+    FactTableSqliteWriter().write(
+        fact_table=FactTableExtractor().extract(document),
+        db_path=db_path,
+    )
+    vector_backend = FakeVectorBackend(responses={})
+    result = QueryAgent(
+        page_index_backend=FakePageIndexBackend(responses={}),
+        vector_backend=vector_backend,
+        structured_query_backend=StructuredFactQueryBackend(db_path=db_path),
+    ).answer(
+        tree=_tree(),
+        query="What is the CPI weight of Bread and Cereals and what was its year-on-year inflation rate in March EFY2017?",
+    )
+
+    assert result.status == "verified"
+    assert result.route == "structured_query"
+    assert result.answer is not None
+    assert "Bread and Cereals" in result.answer
+    assert "17.1%" in result.answer
+    assert "1.2%" in result.answer
+    assert result.provenance_chain is not None
+    assert len(result.provenance_chain.entries) == 2
+    assert vector_backend.calls == []
+
+
 def test_query_agent_prefers_parts_list_snippet_for_parts_query() -> None:
     page_index_backend = FakePageIndexBackend(
         responses={"What are the parts of the final research?": [_page_index_match(("6 PARTS OF THE RESEARCH PROPOSAL",))]}
@@ -617,4 +656,3 @@ def test_query_agent_financial_section_boost() -> None:
     assert result.answer is not None
     assert "1.2 billion" in result.answer
     assert "grew by 10%" not in result.answer
-
