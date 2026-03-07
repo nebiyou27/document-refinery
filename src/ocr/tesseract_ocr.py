@@ -148,7 +148,16 @@ def _coerce_float(values: dict[str, Any], key: str, index: int) -> float:
         return -1.0
 
 
-def _boxes_from_data(data: dict[str, Any]) -> tuple[list[OCRBox], float]:
+def _resolve_tesseract_config(config: str, psm: int | None) -> str:
+    parts: list[str] = []
+    if config.strip():
+        parts.append(config.strip())
+    if psm is not None:
+        parts.append(f"--psm {psm}")
+    return " ".join(parts)
+
+
+def _boxes_from_data(data: dict[str, Any], *, include_boxes: bool = True) -> tuple[list[OCRBox], float]:
     texts = data.get("text", [])
     if not isinstance(texts, list):
         return [], 0.0
@@ -164,6 +173,8 @@ def _boxes_from_data(data: dict[str, Any]) -> tuple[list[OCRBox], float]:
         text = str(raw_text or "").strip()
         conf = _coerce_float(data, "conf", index)
         if not text:
+            continue
+        if not include_boxes:
             continue
         boxes.append(
             OCRBox(
@@ -191,22 +202,23 @@ def _ocr_image(
     tesseract_cmd: str,
     preprocess: str,
     config: str,
+    psm: int | None,
     include_boxes: bool,
 ) -> OCRPageResult:
     pytesseract = _configure_tesseract(tesseract_cmd)
     processed_image = preprocess_image(image, preprocess)
-    text = pytesseract.image_to_string(processed_image, lang=lang, config=config).strip()
+    effective_config = _resolve_tesseract_config(config, psm)
+    text = pytesseract.image_to_string(processed_image, lang=lang, config=effective_config).strip()
 
     boxes: list[OCRBox] = []
     mean_confidence = 0.0
-    if include_boxes:
-        data = pytesseract.image_to_data(
-            processed_image,
-            lang=lang,
-            config=config,
-            output_type=pytesseract.Output.DICT,
-        )
-        boxes, mean_confidence = _boxes_from_data(data)
+    data = pytesseract.image_to_data(
+        processed_image,
+        lang=lang,
+        config=effective_config,
+        output_type=pytesseract.Output.DICT,
+    )
+    boxes, mean_confidence = _boxes_from_data(data, include_boxes=include_boxes)
 
     return OCRPageResult(
         page_number=page_number,
@@ -247,6 +259,7 @@ def ocr_path(
     last_page: int | None = None,
     include_boxes: bool = False,
     config: str = "",
+    psm: int | None = None,
     poppler_path: str | None = None,
 ) -> OCRResult:
     """Run local Tesseract OCR on a PDF or image path."""
@@ -277,6 +290,7 @@ def ocr_path(
                     tesseract_cmd=tesseract_cmd,
                     preprocess=preprocess,
                     config=config,
+                    psm=psm,
                     include_boxes=include_boxes,
                 )
             )
@@ -293,6 +307,7 @@ def ocr_path(
                     tesseract_cmd=tesseract_cmd,
                     preprocess=preprocess,
                     config=config,
+                    psm=psm,
                     include_boxes=include_boxes,
                 )
             )

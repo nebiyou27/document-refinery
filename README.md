@@ -252,6 +252,11 @@ document-refinery/
 All routing thresholds live in `rubric/extraction_rules.yaml`.
 Change values there — never hardcode them in Python files.
 
+For local OCR smoke tests via `scripts/run_tesseract_ocr.py`, keep `--psm` explicit and optional.
+Recommended default: `--psm 3`.
+Optional alternative: `--psm 6` for some dense, block-like pages.
+For the table-heavy Amharic page `data/2013-E.C-Assigned-regular-budget-and-expense.pdf` page 1 with `lang=amh+eng` and `preprocess=threshold`, observed mean confidence was higher with `--psm 3` than with `--psm 6`.
+
 Key thresholds (empirically validated on 50-document corpus):
 
 ```yaml

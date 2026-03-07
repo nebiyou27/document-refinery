@@ -74,6 +74,60 @@ def test_ocr_path_on_image_uses_pytesseract_and_returns_boxes(monkeypatch, tmp_p
     assert result.pages[0].mean_confidence == 90.0
 
 
+def test_ocr_path_computes_mean_confidence_without_boxes(monkeypatch, tmp_path: Path) -> None:
+    Image = pytest.importorskip("PIL.Image")
+
+    image_path = tmp_path / "sample.png"
+    Image.new("RGB", (20, 10), color="white").save(image_path)
+    seen_configs: list[str] = []
+
+    class _Output:
+        DICT = object()
+
+    class _FakePyTesseractModule:
+        Output = _Output
+
+        class pytesseract:
+            tesseract_cmd = ""
+
+        @staticmethod
+        def image_to_string(image, *, lang: str, config: str) -> str:
+            _ = image, lang
+            seen_configs.append(config)
+            return "Revenue"
+
+        @staticmethod
+        def image_to_data(image, *, lang: str, config: str, output_type: object) -> dict[str, list[object]]:
+            _ = image, lang, output_type
+            seen_configs.append(config)
+            return {
+                "text": ["Revenue", ""],
+                "conf": ["87", "-1"],
+                "left": [1, 0],
+                "top": [2, 0],
+                "width": [20, 0],
+                "height": [8, 0],
+                "line_num": [1, 0],
+                "block_num": [1, 0],
+                "par_num": [1, 0],
+                "word_num": [1, 0],
+            }
+
+    monkeypatch.setattr(tesseract_ocr, "_require_pytesseract", lambda: _FakePyTesseractModule)
+
+    result = tesseract_ocr.ocr_path(
+        image_path,
+        lang="eng",
+        preprocess="grayscale",
+        include_boxes=False,
+        psm=6,
+    )
+
+    assert result.pages[0].boxes == []
+    assert result.pages[0].mean_confidence == 87.0
+    assert seen_configs == ["--psm 6", "--psm 6"]
+
+
 def test_boxes_mean_confidence_ignores_negative_layout_confidence() -> None:
     boxes, mean_confidence = tesseract_ocr._boxes_from_data(
         {
@@ -92,6 +146,11 @@ def test_boxes_mean_confidence_ignores_negative_layout_confidence() -> None:
 
     assert len(boxes) == 2
     assert mean_confidence == 90.0
+
+
+def test_resolve_tesseract_config_appends_psm() -> None:
+    assert tesseract_ocr._resolve_tesseract_config("", 6) == "--psm 6"
+    assert tesseract_ocr._resolve_tesseract_config("--oem 1", 6) == "--oem 1 --psm 6"
 
 
 def test_ocr_path_uses_pdf2image_for_pdf(monkeypatch, tmp_path: Path) -> None:

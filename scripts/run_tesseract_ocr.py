@@ -52,6 +52,12 @@ def main() -> int:
     parser.add_argument("--dpi", type=int, default=300, help="PDF rasterization DPI")
     parser.add_argument("--config", default="", help="Extra Tesseract config string")
     parser.add_argument(
+        "--psm",
+        type=int,
+        default=None,
+        help="Optional Tesseract page segmentation mode. Recommended: 3; try 6 for some dense block-like pages.",
+    )
+    parser.add_argument(
         "--include-boxes",
         action="store_true",
         help="Include OCR boxes and confidence from image_to_data",
@@ -80,6 +86,7 @@ def main() -> int:
             last_page=args.last_page,
             include_boxes=args.include_boxes,
             config=args.config,
+            psm=args.psm,
             poppler_path=args.poppler_path,
         )
     except Exception as exc:
