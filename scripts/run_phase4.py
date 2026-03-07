@@ -18,6 +18,7 @@ from src.agents.extractor import run_extraction
 from src.agents.phase4_pipeline import Phase4Pipeline
 from src.chunking import ChromaVectorStore, ChunkingConfig, ChunkingEngine, OllamaSummaryBackend, SummaryBackend, SummaryInput
 from src.chunking.vector_store import EmbeddingBackend, VectorStoreError
+from src.storage import FactTableSqliteWriter
 from src.utils.hashing import canonicalize_text
 
 
@@ -172,6 +173,10 @@ def save_artifacts(*, output_dir: Path, pipeline_result) -> None:
     (output_dir / "fact_table.json").write_text(
         pipeline_result.fact_table.model_dump_json(indent=2),
         encoding="utf-8",
+    )
+    FactTableSqliteWriter().write(
+        fact_table=pipeline_result.fact_table,
+        db_path=output_dir / "fact_table.sqlite",
     )
     phase4_report = {
         "doc_id": pipeline_result.extracted.doc_id,
