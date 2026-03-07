@@ -465,6 +465,103 @@ def test_query_agent_numeric_query_uses_hybrid_variants_and_reranks_table_like_c
     assert any(call["topic"] == "combined ratio 2018 financial highlights" for call in vector_backend.calls)
 
 
+def test_query_agent_detects_numeric_lookup_intent() -> None:
+    agent = QueryAgent(
+        page_index_backend=FakePageIndexBackend(responses={}),
+        vector_backend=FakeVectorBackend(responses={}),
+    )
+    intent = agent._detect_query_intent("what is the cpi weight of bread and cereals in march efy2017")
+    assert intent["is_numeric_financial"] is True
+    assert intent["is_numeric_lookup"] is True
+
+
+def test_query_agent_filters_year_on_year_matches_when_query_requests_yoy() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"bread and cereals year-on-year inflation march efy2017": [_page_index_match(("2 Inflation",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("bread and cereals year-on-year inflation march efy2017", ("2 Inflation",)): [
+                _vector_match(
+                    "chunk-mom",
+                    "Bread and cereals month-to-month inflation in March EFY2017 was 1.4%.",
+                    section_path=("2 Inflation",),
+                ),
+                _vector_match(
+                    "chunk-yoy",
+                    "Bread and cereals year-on-year inflation in March EFY2017 was 1.2%.",
+                    section_path=("2 Inflation",),
+                ),
+            ],
+        }
+    )
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="bread and cereals year-on-year inflation march efy2017",
+        top_k=1,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert "year-on-year inflation" in result.answer.lower()
+    assert "1.2" in result.answer
+
+
+def test_query_agent_numeric_lookup_synthesis_prefers_closest_match_when_overlap_is_equal() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"combined ratio 2018": [_page_index_match(("3 Financial Highlights",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("combined ratio 2018", ("3 Financial Highlights",)): [
+                VectorStoreMatch(
+                    record_id="chunk-far",
+                    text="Combined ratio 2018: 98.1%",
+                    metadata={
+                        "record_type": "chunk",
+                        "doc_id": "doc123",
+                        "document_name": "sample.pdf",
+                        "page_number": 2,
+                        "bbox": [0.0, 10.0, 80.0, 22.0],
+                        "section_path": ["3 Financial Highlights"],
+                        "content_hash": "hash-far",
+                        "strategy_used": "strategy_b",
+                        "confidence_score": 0.93,
+                    },
+                    distance=0.9,
+                ),
+                VectorStoreMatch(
+                    record_id="chunk-close",
+                    text="Combined ratio 2018: 96.4%",
+                    metadata={
+                        "record_type": "chunk",
+                        "doc_id": "doc123",
+                        "document_name": "sample.pdf",
+                        "page_number": 2,
+                        "bbox": [0.0, 10.0, 80.0, 22.0],
+                        "section_path": ["3 Financial Highlights"],
+                        "content_hash": "hash-close",
+                        "strategy_used": "strategy_b",
+                        "confidence_score": 0.93,
+                    },
+                    distance=0.1,
+                ),
+            ],
+            ("combined ratio 2018 financial highlights", ("3 Financial Highlights",)): [],
+            ("combined ratio 2018 table", ("3 Financial Highlights",)): [],
+        }
+    )
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="combined ratio 2018",
+        top_k=2,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert "96.4" in result.answer
+
+
 def test_query_agent_section_query_penalizes_front_matter_chunk() -> None:
     page_index_backend = FakePageIndexBackend(
         responses={"research questions": [_page_index_match(("1 Introduction",))]}

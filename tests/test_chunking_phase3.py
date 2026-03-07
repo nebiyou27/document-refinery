@@ -701,6 +701,39 @@ def test_section_path_inference_for_nested_numbered_headings() -> None:
     assert ldus[2].section_path == ("3 Results", "3.2 Retrieval Precision")
 
 
+def test_section_path_inference_accepts_colon_after_numbered_heading() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 120, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="3: 12-Month Moving Average General Inflation",
+                bbox=(0.0, 0.0, 120.0, 16.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Inflation eased compared to the prior year.",
+                bbox=(0.0, 20.0, 120.0, 32.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+
+    assert ldus[0].section_path == ("3 12-Month Moving Average General Inflation",)
+    assert ldus[1].section_path == ("3 12-Month Moving Average General Inflation",)
+
+
 def test_section_context_is_inherited_when_body_blocks_have_no_heading() -> None:
     page = ExtractedPage(
         doc_id="doc123",

@@ -42,7 +42,7 @@ class SectionPathInferer:
     """Infers deterministic hierarchical section paths from extracted blocks."""
 
     _NUMBERED_HEADING_RE = re.compile(
-        r"^(?P<number>\d+(?:\.\d+)*)(?:[.)])?\s+(?P<title>[A-Za-z][^\n]{0,120})$"
+        r"^(?P<number>\d+(?:\.\d+)*)(?:[.):])?\s+(?P<title>[A-Za-z0-9][^\n]{0,120})$"
     )
     _LIST_ITEM_RE = re.compile(
         r"^(?:[-*•]\s*)?(?:(?:\d+(?:\.\d+)*|[A-Za-z])(?:[.)])?)\s+\S"

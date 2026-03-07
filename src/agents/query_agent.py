@@ -82,6 +82,10 @@ class QueryAgent:
         if not retrieval_matches:
             route = "baseline_vector"
             retrieval_matches = tuple(self._baseline_retrieve(query=query, top_k=top_k, record_type=record_type))
+        retrieval_matches = self._filter_matches_by_metric_qualifier(
+            query=query,
+            retrieval_matches=retrieval_matches,
+        )
 
         if retrieval_matches:
             retrieval_matches = self._rerank_matches_for_query(
@@ -183,7 +187,6 @@ class QueryAgent:
         collected: list[VectorStoreMatch] = []
         seen_record_ids: set[str] = set()
         retrieval_queries = self._build_assisted_retrieval_queries(query)
-        intent = self._detect_query_intent(canonicalize_text(query).lower())
         per_query_top_k = max(top_k * 3, 10)  # Broader pool for hybrid reranking
         max_candidates = max(top_k * 4, 20)
 
@@ -214,7 +217,6 @@ class QueryAgent:
         retrieval_queries = self._build_assisted_retrieval_queries(query)
         collected: list[VectorStoreMatch] = []
         seen_record_ids: set[str] = set()
-        intent = self._detect_query_intent(canonicalize_text(query).lower())
         per_query_top_k = max(top_k * 3, 10)  # Broader pool for hybrid reranking
         for retrieval_query in retrieval_queries:
             vector_matches = self.vector_backend.query(
@@ -235,6 +237,12 @@ class QueryAgent:
         query: str,
         retrieval_matches: tuple[VectorStoreMatch, ...],
     ) -> str:
+        intent = self._detect_query_intent(canonicalize_text(query).lower())
+        if intent["is_numeric_lookup"]:
+            best_numeric = self._best_numeric_lookup_match(query=query, retrieval_matches=retrieval_matches)
+            if best_numeric is not None:
+                return canonicalize_text(best_numeric.text)
+
         if self._is_parts_list_query(query):
             for match in retrieval_matches:
                 snippet = canonicalize_text(match.text)
@@ -641,6 +649,13 @@ class QueryAgent:
         if intent["is_numeric_financial"]:
             queries.append(f"{base} financial highlights")
             queries.append(f"{base} table")
+            qualifier = self._query_metric_qualifier(normalized)
+            if qualifier == "yoy":
+                queries.append(f"{base} year-on-year")
+                queries.append(f"{base} annual inflation")
+            elif qualifier == "mom":
+                queries.append(f"{base} month-to-month")
+                queries.append(f"{base} monthly inflation")
 
         if self._is_parts_list_query(base):
             target = self._extract_parts_target_phrase(base)
@@ -671,13 +686,41 @@ class QueryAgent:
         is_definitional = any(normalized_query.startswith(prefix) for prefix in definitional_prefixes)
         is_section = any(keyword in normalized_query for keyword in self._section_query_keywords())
         has_year = re.search(r"\b(19|20)\d{2}\b", normalized_query) is not None
-        is_numeric_financial = has_year or any(
+        has_numeric_token = re.search(r"\b\d+(?:\.\d+)?\b", normalized_query) is not None
+        is_numeric_financial = has_year or has_numeric_token or any(
             keyword in normalized_query for keyword in self._financial_query_keywords()
+        )
+        lookup_prefixes = (
+            "what is ",
+            "what was ",
+            "what are ",
+            "what were ",
+            "how much ",
+            "give ",
+            "show ",
+            "list ",
+        )
+        metric_terms = (
+            "rate",
+            "ratio",
+            "weight",
+            "inflation",
+            "cpi",
+            "amount",
+            "value",
+            "total",
+            "percent",
+            "percentage",
+        )
+        is_numeric_lookup = is_numeric_financial and (
+            any(normalized_query.startswith(prefix) for prefix in lookup_prefixes)
+            or any(term in normalized_query for term in metric_terms)
         )
         return {
             "is_definitional": is_definitional,
             "is_section": is_section,
             "is_numeric_financial": is_numeric_financial,
+            "is_numeric_lookup": is_numeric_lookup,
         }
 
     def _extract_definitional_key_phrase(self, normalized_query: str) -> str:
@@ -742,7 +785,68 @@ class QueryAgent:
             "claims",
             "cash flow",
             "cashflows",
+            "inflation",
+            "cpi",
+            "weight",
+            "year-on-year",
+            "year on year",
+            "month-to-month",
+            "month to month",
         )
+
+    def _query_metric_qualifier(self, normalized_query: str) -> str | None:
+        lowered = canonicalize_text(normalized_query).lower()
+        if any(term in lowered for term in ("year-on-year", "year on year", "yoy", "annual inflation")):
+            return "yoy"
+        if any(term in lowered for term in ("month-to-month", "month to month", "mom", "monthly inflation")):
+            return "mom"
+        return None
+
+    def _filter_matches_by_metric_qualifier(
+        self,
+        *,
+        query: str,
+        retrieval_matches: tuple[VectorStoreMatch, ...],
+    ) -> tuple[VectorStoreMatch, ...]:
+        qualifier = self._query_metric_qualifier(query)
+        if qualifier is None or not retrieval_matches:
+            return retrieval_matches
+
+        def _match_has_qualifier(match: VectorStoreMatch) -> bool:
+            snippet = canonicalize_text(match.text).lower()
+            section_text = self._section_text(match)
+            haystack = f"{section_text} {snippet}"
+            if qualifier == "yoy":
+                return any(term in haystack for term in ("year on year", "yoy", "annual inflation"))
+            return any(term in haystack for term in ("month to month", "mom", "monthly inflation"))
+
+        filtered = tuple(match for match in retrieval_matches if _match_has_qualifier(match))
+        return filtered or retrieval_matches
+
+    def _best_numeric_lookup_match(
+        self,
+        *,
+        query: str,
+        retrieval_matches: tuple[VectorStoreMatch, ...],
+    ) -> VectorStoreMatch | None:
+        if not retrieval_matches:
+            return None
+        normalized_query = canonicalize_text(query).lower()
+        query_numbers = set(re.findall(r"\d+(?:\.\d+)?", normalized_query))
+        query_tokens = set(self._query_tokens(normalized_query))
+
+        scored: list[tuple[int, int, int, float, int, VectorStoreMatch]] = []
+        for index, match in enumerate(retrieval_matches):
+            snippet = canonicalize_text(match.text).lower()
+            snippet_numbers = set(re.findall(r"\d+(?:\.\d+)?", snippet))
+            numeric_overlap = len(query_numbers & snippet_numbers) if query_numbers else 0
+            token_overlap = sum(1 for token in query_tokens if token in snippet)
+            table_like = 1 if any(marker in snippet for marker in ("|", "table", "metric:")) else 0
+            distance = float(match.distance) if isinstance(match.distance, (int, float)) else 1e9
+            scored.append((numeric_overlap, token_overlap, table_like, -distance, -index, match))
+
+        scored.sort(reverse=True)
+        return scored[0][5]
 
     def _section_text(self, match: VectorStoreMatch) -> str:
         section_path_value = match.metadata.get("section_path")
