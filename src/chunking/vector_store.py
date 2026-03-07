@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from src.models.chunking import Chunk, LDU
+from src.utils.hashing import canonicalize_text
 
 
 class EmbeddingBackend(Protocol):
@@ -17,6 +18,13 @@ class EmbeddingBackend(Protocol):
 
     def embed_query(self, text: str) -> list[float]:
         """Embed a single query deterministically."""
+
+
+class OllamaEmbeddingClientProtocol(Protocol):
+    """Minimal Ollama client surface needed by the embedding backend."""
+
+    def embed(self, **kwargs: Any) -> dict[str, Any]:
+        """Submit an embedding request and return the raw Ollama response."""
 
 
 class ChromaCollectionProtocol(Protocol):
@@ -56,6 +64,66 @@ class ChromaClientProtocol(Protocol):
 
 class VectorStoreError(RuntimeError):
     """Raised when vector-store operations fail."""
+
+
+class OllamaEmbeddingBackend:
+    """Ollama-backed embedding backend for vector-store operations."""
+
+    def __init__(
+        self,
+        client: OllamaEmbeddingClientProtocol | None = None,
+        *,
+        model: str = "qwen3-embedding:0.6b",
+        keep_alive: str | int = "0s",
+    ) -> None:
+        self.client = client or self._default_client()
+        self.model = model
+        self.keep_alive = keep_alive
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        response = self._embed(inputs=texts)
+        embeddings = response.get("embeddings")
+        if not isinstance(embeddings, list):
+            raise VectorStoreError("Ollama embedding response did not include embeddings")
+        normalized = [self._coerce_embedding(item) for item in embeddings]
+        if len(normalized) != len(texts):
+            raise VectorStoreError("Ollama embedding response count did not match input count")
+        return normalized
+
+    def embed_query(self, text: str) -> list[float]:
+        response = self._embed(inputs=[text])
+        embeddings = response.get("embeddings")
+        if not isinstance(embeddings, list) or not embeddings:
+            raise VectorStoreError("Ollama embedding response did not include embeddings")
+        return self._coerce_embedding(embeddings[0])
+
+    def _embed(self, *, inputs: list[str]) -> dict[str, Any]:
+        cleaned_inputs = [canonicalize_text(text) for text in inputs]
+        try:
+            return self.client.embed(
+                model=self.model,
+                input=cleaned_inputs,
+                keep_alive=self.keep_alive,
+            )
+        except Exception as exc:  # pragma: no cover - exercised via tests with fake client
+            raise VectorStoreError(f"Ollama embedding request failed: {exc}") from exc
+
+    def _coerce_embedding(self, value: Any) -> list[float]:
+        if not isinstance(value, list):
+            raise VectorStoreError("Ollama embedding response contained a non-list embedding")
+        try:
+            return [float(item) for item in value]
+        except (TypeError, ValueError) as exc:
+            raise VectorStoreError("Ollama embedding response contained a non-numeric embedding value") from exc
+
+    def _default_client(self) -> OllamaEmbeddingClientProtocol:
+        try:
+            from ollama import Client
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise VectorStoreError("Ollama client is not installed") from exc
+        return Client()
 
 
 @dataclass(frozen=True)

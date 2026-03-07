@@ -20,13 +20,20 @@ from .retrieval_evaluation import (
 )
 from .sections import SectionCandidate, SectionPathInferer
 from .validator import ChunkValidationError, ChunkValidator
-from .vector_store import ChromaVectorStore, EmbeddingBackend, VectorStoreError, VectorStoreMatch
+from .vector_store import (
+    ChromaVectorStore,
+    EmbeddingBackend,
+    OllamaEmbeddingBackend,
+    VectorStoreError,
+    VectorStoreMatch,
+)
 
 __all__ = [
     "ChunkingConfig",
     "ChunkingEngine",
     "ChromaVectorStore",
     "EmbeddingBackend",
+    "OllamaEmbeddingBackend",
     "PageIndexBuilder",
     "PageIndexMatch",
     "PageIndexQueryEngine",

@@ -16,7 +16,15 @@ if str(ROOT) not in sys.path:
 
 from src.agents.extractor import run_extraction
 from src.agents.phase4_pipeline import Phase4Pipeline
-from src.chunking import ChromaVectorStore, ChunkingConfig, ChunkingEngine, OllamaSummaryBackend, SummaryBackend, SummaryInput
+from src.chunking import (
+    ChromaVectorStore,
+    ChunkingConfig,
+    ChunkingEngine,
+    OllamaEmbeddingBackend,
+    OllamaSummaryBackend,
+    SummaryBackend,
+    SummaryInput,
+)
 from src.chunking.vector_store import EmbeddingBackend, VectorStoreError
 from src.storage import FactTableSqliteWriter
 from src.utils.hashing import canonicalize_text
@@ -67,7 +75,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--summary-backend",
         choices=["heuristic", "ollama"],
-        default="heuristic",
+        default="ollama",
         help="Summary backend for PageIndex nodes",
     )
     parser.add_argument(
@@ -79,6 +87,22 @@ def parse_args() -> argparse.Namespace:
         "--ollama-keep-alive",
         default="0s",
         help="Ollama keep_alive value when --summary-backend=ollama",
+    )
+    parser.add_argument(
+        "--embedding-backend",
+        choices=["hash", "ollama"],
+        default="ollama",
+        help="Embedding backend for vector retrieval",
+    )
+    parser.add_argument(
+        "--ollama-embedding-model",
+        default="qwen3-embedding:0.6b",
+        help="Ollama embedding model to use when --embedding-backend=ollama",
+    )
+    parser.add_argument(
+        "--ollama-embedding-keep-alive",
+        default="0s",
+        help="Ollama keep_alive value when --embedding-backend=ollama",
     )
     parser.add_argument(
         "--topic",
@@ -126,6 +150,15 @@ def build_summary_backend(args: argparse.Namespace) -> SummaryBackend:
     return OllamaSummaryBackend(
         model=args.ollama_model,
         keep_alive=args.ollama_keep_alive,
+    )
+
+
+def build_embedding_backend(args: argparse.Namespace) -> EmbeddingBackend:
+    if args.embedding_backend == "hash":
+        return HashEmbeddingBackend()
+    return OllamaEmbeddingBackend(
+        model=args.ollama_embedding_model,
+        keep_alive=args.ollama_embedding_keep_alive,
     )
 
 
@@ -236,7 +269,7 @@ def main() -> int:
             return 1
 
         vector_store = ChromaVectorStore(
-            embedding_backend=HashEmbeddingBackend(),
+            embedding_backend=build_embedding_backend(args),
             collection_name=f"phase4_{extracted.doc_id}",
             persist_directory=args.persist_dir,
         )

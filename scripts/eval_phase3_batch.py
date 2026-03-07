@@ -25,6 +25,7 @@ from src.chunking import (
     ChunkingConfig,
     ChunkingEngine,
     LabeledRetrievalQuery,
+    OllamaEmbeddingBackend,
     OllamaSummaryBackend,
     PageIndexBuilder,
     PageIndexQueryEngine,
@@ -148,7 +149,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--summary-backend",
         choices=["heuristic", "ollama"],
-        default="heuristic",
+        default="ollama",
         help="Summary backend for PageIndex nodes.",
     )
     parser.add_argument(
@@ -160,6 +161,22 @@ def parse_args() -> argparse.Namespace:
         "--ollama-keep-alive",
         default="0s",
         help="Ollama keep_alive value when --summary-backend=ollama.",
+    )
+    parser.add_argument(
+        "--embedding-backend",
+        choices=["hash", "ollama"],
+        default="ollama",
+        help="Embedding backend for vector retrieval.",
+    )
+    parser.add_argument(
+        "--ollama-embedding-model",
+        default="qwen3-embedding:0.6b",
+        help="Ollama embedding model to use when --embedding-backend=ollama.",
+    )
+    parser.add_argument(
+        "--ollama-embedding-keep-alive",
+        default="0s",
+        help="Ollama keep_alive value when --embedding-backend=ollama.",
     )
     parser.add_argument(
         "--top-k",
@@ -201,6 +218,15 @@ def build_summary_backend(args: argparse.Namespace) -> SummaryBackend:
     return OllamaSummaryBackend(
         model=args.ollama_model,
         keep_alive=args.ollama_keep_alive,
+    )
+
+
+def build_embedding_backend(args: argparse.Namespace) -> EmbeddingBackend:
+    if args.embedding_backend == "hash":
+        return HashEmbeddingBackend()
+    return OllamaEmbeddingBackend(
+        model=args.ollama_embedding_model,
+        keep_alive=args.ollama_embedding_keep_alive,
     )
 
 
@@ -632,7 +658,7 @@ def process_document(
             bool((node.summary or "").strip()) for node in summarized_tree.nodes if node.section_path
         )
 
-        embedding_backend = HashEmbeddingBackend()
+        embedding_backend = build_embedding_backend(args)
         collection_name = f"phase3_batch_eval_{extracted.doc_id}"
         vector_store = ChromaVectorStore(
             embedding_backend=embedding_backend,

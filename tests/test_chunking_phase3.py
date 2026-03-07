@@ -17,6 +17,7 @@ from src.chunking import (
     ChunkingEngine,
     EmbeddingBackend,
     LabeledRetrievalQuery,
+    OllamaEmbeddingBackend,
     OllamaSummaryBackend,
     PageIndexBuilder,
     PageIndexMatch,
@@ -107,6 +108,22 @@ class FailingOllamaClient:
     def chat(self, **kwargs: object) -> dict[str, object]:
         _ = kwargs
         raise RuntimeError("connection lost")
+
+
+class MockOllamaEmbeddingClient:
+    def __init__(self, response: dict[str, object]) -> None:
+        self.response = response
+        self.calls: list[dict[str, object]] = []
+
+    def embed(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        return self.response
+
+
+class FailingOllamaEmbeddingClient:
+    def embed(self, **kwargs: object) -> dict[str, object]:
+        _ = kwargs
+        raise RuntimeError("embedding service unavailable")
 
 
 class FakeEmbeddingBackend(EmbeddingBackend):
@@ -1446,6 +1463,36 @@ def test_ollama_backend_handles_failures_gracefully() -> None:
     summarized = PageIndexSummarizer(backend).summarize_tree(tree=tree, ldus=ldus)
     operations = next(node for node in summarized.nodes if node.section_path == ("6 Operations",))
     assert operations.summary is None
+
+
+def test_ollama_embedding_backend_uses_mocked_client_response_and_configuration() -> None:
+    client = MockOllamaEmbeddingClient(response={"embeddings": [[0.1, 0.2], [0.3, 0.4]]})
+    backend = OllamaEmbeddingBackend(client=client, model="qwen3-embedding:0.6b", keep_alive="15s")
+
+    embeddings = backend.embed_documents(["Revenue improved.", "Results stabilized."])
+
+    assert embeddings == [[0.1, 0.2], [0.3, 0.4]]
+    assert client.calls[0]["model"] == "qwen3-embedding:0.6b"
+    assert client.calls[0]["keep_alive"] == "15s"
+    assert client.calls[0]["input"] == ["Revenue improved.", "Results stabilized."]
+
+
+def test_ollama_embedding_backend_embeds_single_query() -> None:
+    client = MockOllamaEmbeddingClient(response={"embeddings": [[0.5, 0.6, 0.7]]})
+    backend = OllamaEmbeddingBackend(client=client)
+
+    embedding = backend.embed_query("Financial risk controls")
+
+    assert embedding == [0.5, 0.6, 0.7]
+    assert client.calls[0]["model"] == "qwen3-embedding:0.6b"
+    assert client.calls[0]["input"] == ["Financial risk controls"]
+
+
+def test_ollama_embedding_backend_handles_failures_cleanly() -> None:
+    backend = OllamaEmbeddingBackend(client=FailingOllamaEmbeddingClient())
+
+    with pytest.raises(RuntimeError, match="Ollama embedding request failed"):
+        backend.embed_query("System stability")
 
 
 def test_page_index_query_selects_relevant_flat_sections() -> None:
