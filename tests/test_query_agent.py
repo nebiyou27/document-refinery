@@ -13,6 +13,7 @@ from src.agents.structured_fact_query import StructuredFactQueryBackend
 from src.chunking.page_index import PageIndexTree
 from src.chunking.page_index_query import PageIndexMatch
 from src.chunking.vector_store import VectorStoreMatch
+from src.models.chunking import PageIndexNode
 from src.models.extracted_document import ExtractedDocument, ExtractedPage, ExtractionMetadata, TableBlock
 from src.storage import FactTableSqliteWriter
 
@@ -260,3 +261,131 @@ def test_query_agent_answers_fact_query_from_structured_sqlite(tmp_path: Path) -
     assert len(result.provenance_chain.entries) == 2
     assert result.provenance_chain.entries[0].provenance.page_number == 1
     assert vector_backend.calls == []
+
+
+def test_query_agent_prefers_parts_list_snippet_for_parts_query() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"What are the parts of the final research?": [_page_index_match(("6 PARTS OF THE RESEARCH PROPOSAL",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("What are the parts of the final research?", ("6 PARTS OF THE RESEARCH PROPOSAL",)): [
+                _vector_match(
+                    "chunk-wrong",
+                    (
+                        "Now that you have established that your question remains unanswered, "
+                        "your final task in this section is to argue why it is worth answering."
+                    ),
+                    section_path=("6 PARTS OF THE RESEARCH PROPOSAL",),
+                ),
+            ],
+            ("the final research should contain the following", ("6 PARTS OF THE RESEARCH PROPOSAL",)): [
+                _vector_match(
+                    "chunk-right",
+                    (
+                        "Research Methodology details... Parts of the Final Research "
+                        "Your final research should contain the following: Title page; "
+                        "Signed Approval Sheet; Abstract; Chapter 1 -- Research Problem."
+                    ),
+                    section_path=("6 PARTS OF THE RESEARCH PROPOSAL",),
+                ),
+            ]
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="What are the parts of the final research?",
+        top_k=2,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert result.answer.startswith("Parts of the Final Research")
+    assert "Title page" in result.answer
+    assert any(call["topic"] == "the final research should contain the following" for call in vector_backend.calls)
+
+
+def test_query_agent_parts_query_lexical_fallback_prefers_final_research_summary() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={
+            "What are the parts of the final research?": [
+                PageIndexMatch(
+                    node_id="node-generic",
+                    title="6 PARTS OF THE RESEARCH PROPOSAL",
+                    section_path=("6 PARTS OF THE RESEARCH PROPOSAL",),
+                    score=10,
+                    start_page=5,
+                    end_page=8,
+                    summary="Parts of the research proposal with broad guidance.",
+                ),
+                PageIndexMatch(
+                    node_id="node-target",
+                    title="6 PARTS OF THE RESEARCH PROPOSAL",
+                    section_path=("6 PARTS OF THE RESEARCH PROPOSAL",),
+                    score=9,
+                    start_page=8,
+                    end_page=8,
+                    summary=(
+                        "Parts of the Final Research: Your final research should contain "
+                        "the following items including Title page and Abstract."
+                    ),
+                ),
+            ]
+        }
+    )
+
+    tree = PageIndexTree(
+        doc_id="doc123",
+        root_id="root",
+        nodes=[
+            PageIndexNode(
+                node_id="root",
+                title="ROOT",
+                section_path=(),
+                parent_id=None,
+                depth=0,
+                start_page=1,
+                end_page=8,
+                bbox=(0.0, 0.0, 10.0, 10.0),
+                child_ids=["node-generic", "node-target"],
+                order_index=0,
+            ),
+            PageIndexNode(
+                node_id="node-generic",
+                title="6 PARTS OF THE RESEARCH PROPOSAL",
+                section_path=("6 PARTS OF THE RESEARCH PROPOSAL",),
+                parent_id="root",
+                depth=1,
+                start_page=5,
+                end_page=8,
+                bbox=(0.0, 0.0, 10.0, 10.0),
+                order_index=1,
+            ),
+            PageIndexNode(
+                node_id="node-target",
+                title="6 PARTS OF THE RESEARCH PROPOSAL",
+                section_path=("6 PARTS OF THE RESEARCH PROPOSAL",),
+                parent_id="root",
+                depth=1,
+                start_page=8,
+                end_page=8,
+                bbox=(0.0, 0.0, 10.0, 10.0),
+                order_index=2,
+            ),
+        ],
+    )
+
+    result = QueryAgent(
+        page_index_backend=page_index_backend,
+        vector_backend=FakeVectorBackend(responses={}),
+    ).answer(
+        tree=tree,
+        query="What are the parts of the final research?",
+        top_k=2,
+    )
+
+    assert result.status == "verified"
+    assert result.route == "pageindex_lexical"
+    assert result.answer is not None
+    assert "Parts of the Final Research" in result.answer
