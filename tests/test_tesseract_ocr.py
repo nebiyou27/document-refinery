@@ -74,6 +74,26 @@ def test_ocr_path_on_image_uses_pytesseract_and_returns_boxes(monkeypatch, tmp_p
     assert result.pages[0].mean_confidence == 90.0
 
 
+def test_boxes_mean_confidence_ignores_negative_layout_confidence() -> None:
+    boxes, mean_confidence = tesseract_ocr._boxes_from_data(
+        {
+            "text": ["Revenue", "Cost", "", "", ""],
+            "conf": ["88", "92", "-1", "-1", "-1"],
+            "left": [1, 40, 0, 0, 0],
+            "top": [2, 2, 0, 0, 0],
+            "width": [20, 55, 0, 0, 0],
+            "height": [8, 8, 0, 0, 0],
+            "line_num": [1, 1, 0, 0, 0],
+            "block_num": [1, 1, 0, 0, 0],
+            "par_num": [1, 1, 0, 0, 0],
+            "word_num": [1, 2, 0, 0, 0],
+        }
+    )
+
+    assert len(boxes) == 2
+    assert mean_confidence == 90.0
+
+
 def test_ocr_path_uses_pdf2image_for_pdf(monkeypatch, tmp_path: Path) -> None:
     Image = pytest.importorskip("PIL.Image")
 

@@ -154,14 +154,17 @@ def _boxes_from_data(data: dict[str, Any]) -> tuple[list[OCRBox], float]:
         return [], 0.0
 
     boxes: list[OCRBox] = []
-    confidences: list[float] = []
+    raw_confidences = data.get("conf", [])
+    confidences = (
+        [float(conf) for conf in raw_confidences if float(conf) >= 0]
+        if isinstance(raw_confidences, list)
+        else []
+    )
     for index, raw_text in enumerate(texts):
         text = str(raw_text or "").strip()
         conf = _coerce_float(data, "conf", index)
         if not text:
             continue
-        if conf >= 0:
-            confidences.append(conf)
         boxes.append(
             OCRBox(
                 text=text,
