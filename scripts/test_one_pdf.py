@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.agents.extractor import run_extraction
+from src.agents.audit_mode import AuditMode
 from src.agents.query_agent import QueryAgent, QueryAgentResult
 from src.chunking import (
     ChromaVectorStore,
@@ -202,6 +203,7 @@ def print_node_summaries(tree: PageIndexTree) -> None:
 def print_query_results(
     *,
     result: QueryAgentResult,
+    audit_result: dict[str, Any] | None,
     baseline_matches: list[VectorStoreMatch],
 ) -> None:
     print(f"\n== Query: {result.query} ==")
@@ -210,6 +212,10 @@ def print_query_results(
         print(f"Answer: {result.answer}")
     if result.failure_reason:
         print(f"Failure: {result.failure_reason}")
+    if audit_result:
+        print(f"Audit: {audit_result['status']}")
+        if audit_result.get("failure_reason"):
+            print(f"Audit failure: {audit_result['failure_reason']}")
     print("PageIndex matches:")
     for match in result.page_index_matches:
         section = " > ".join(match.section_path)
@@ -290,6 +296,7 @@ def main() -> int:
 
         topics = build_topics(summarized_tree, args.topics)
         query_engine = PageIndexQueryEngine()
+        audit_mode = AuditMode()
         query_agent = QueryAgent(
             page_index_backend=query_engine,
             vector_backend=vector_store,
@@ -313,8 +320,10 @@ def main() -> int:
                 top_k=args.top_k,
             )
             baseline_matches = vector_store.query(topic, top_k=args.top_k)
+            audit_result = audit_mode.audit(result).__dict__
             print_query_results(
                 result=result,
+                audit_result=audit_result,
                 baseline_matches=baseline_matches,
             )
             query_outputs.append(
@@ -324,6 +333,7 @@ def main() -> int:
                     "route": result.route,
                     "answer": result.answer,
                     "failure_reason": result.failure_reason,
+                    "audit": audit_result,
                     "pageindex_matches": [
                         {
                             "section_path": list(match.section_path),
