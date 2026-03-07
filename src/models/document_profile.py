@@ -10,7 +10,7 @@ extractor.py, and all three strategy files.
 
 import hashlib
 from enum import Enum
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 # ================================================================
@@ -160,6 +160,30 @@ class ProvenanceRef(BaseModel):
         Deterministic: same content always produces same hash.
         """
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+class ProvenanceChainEntry(BaseModel):
+    """Single ordered evidence item used to ground a query response."""
+
+    record_id: str = Field(min_length=1)
+    record_type: str = Field(min_length=1)
+    section_path: tuple[str, ...] = ()
+    snippet: str = Field(min_length=1)
+    distance: float | None = None
+    provenance: ProvenanceRef
+
+
+class ProvenanceChain(BaseModel):
+    """Ordered evidence chain backing a response or retrieval trace."""
+
+    entries: tuple[ProvenanceChainEntry, ...]
+    query: str | None = None
+
+    @field_validator("entries")
+    @classmethod
+    def entries_must_be_present(cls, value: tuple[ProvenanceChainEntry, ...]) -> tuple[ProvenanceChainEntry, ...]:
+        assert len(value) > 0, "ProvenanceChain must include at least one entry"
+        return value
 
 
 # ================================================================

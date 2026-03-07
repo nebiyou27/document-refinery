@@ -7,6 +7,8 @@ from .document_profile import (
     LayoutComplexity,
     OriginType,
     PageSignal,
+    ProvenanceChain,
+    ProvenanceChainEntry,
     ProvenanceRef,
     make_error_profile,
 )
@@ -27,6 +29,8 @@ __all__ = [
     "LayoutComplexity",
     "OriginType",
     "PageSignal",
+    "ProvenanceChain",
+    "ProvenanceChainEntry",
     "ProvenanceRef",
     "make_error_profile",
     "Chunk",

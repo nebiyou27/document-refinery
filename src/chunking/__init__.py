@@ -10,6 +10,7 @@ from .page_index_summarizer import (
     SummaryBackendError,
     SummaryInput,
 )
+from .provenance import ProvenanceChainBuilder, ProvenanceChainError
 from .retrieval_evaluation import (
     LabeledRetrievalQuery,
     RetrievalEvaluationReport,
@@ -33,6 +34,8 @@ __all__ = [
     "OllamaSummaryBackend",
     "PageIndexSummarizer",
     "LabeledRetrievalQuery",
+    "ProvenanceChainBuilder",
+    "ProvenanceChainError",
     "RetrievalEvaluationReport",
     "RetrievalEvaluator",
     "RetrievalMetrics",

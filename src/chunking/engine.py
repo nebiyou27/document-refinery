@@ -21,6 +21,9 @@ class OrderedUnit:
     block: TextBlock | TableBlock | FigureBlock
     kind: LDUKind
     source_block_order: int
+    strategy_used: str
+    confidence_score: float
+    document_name: str
 
 
 class ChunkingConfig(BaseModel):
@@ -133,7 +136,13 @@ class ChunkingEngine:
     def _make_chunk(self, doc_id: str, ldus: list[LDU], sequence_number: int) -> Chunk:
         text = self._join_text(ldus)
         bbox = self._merge_bbox(ldus)
-        metadata = {"kinds": [ldu.kind.value for ldu in ldus]}
+        first_ldu = ldus[0]
+        metadata = {
+            "kinds": [ldu.kind.value for ldu in ldus],
+            "strategy_used": first_ldu.metadata.get("strategy_used"),
+            "confidence_score": first_ldu.metadata.get("confidence_score"),
+            "document_name": first_ldu.metadata.get("document_name"),
+        }
         chunk = Chunk(
             doc_id=doc_id,
             page_number=ldus[0].page_number,
@@ -156,6 +165,9 @@ class ChunkingEngine:
                 "split_from_oversized_ldu": True,
                 "split_part_index": offset,
                 "split_part_count": len(pieces),
+                "strategy_used": ldu.metadata.get("strategy_used"),
+                "confidence_score": ldu.metadata.get("confidence_score"),
+                "document_name": ldu.metadata.get("document_name"),
             }
             chunk = Chunk(
                 doc_id=doc_id,
@@ -236,6 +248,9 @@ class ChunkingEngine:
                         block=text_block,
                         kind=LDUKind.text,
                         source_block_order=text_block.reading_order,
+                        strategy_used=page.metadata.strategy_used,
+                        confidence_score=page.metadata.confidence_score,
+                        document_name=document.file_name,
                     )
                 )
 
@@ -258,6 +273,9 @@ class ChunkingEngine:
                         block=table_block,
                         kind=LDUKind.table,
                         source_block_order=10_000 + table_block.table_index,
+                        strategy_used=page.metadata.strategy_used,
+                        confidence_score=page.metadata.confidence_score,
+                        document_name=document.file_name,
                     )
                 )
 
@@ -277,6 +295,9 @@ class ChunkingEngine:
                         block=figure_block,
                         kind=LDUKind.figure,
                         source_block_order=20_000 + figure_index,
+                        strategy_used=page.metadata.strategy_used,
+                        confidence_score=page.metadata.confidence_score,
+                        document_name=document.file_name,
                     )
                 )
 
@@ -297,12 +318,18 @@ class ChunkingEngine:
                 doc_id=doc_id,
                 block=unit.block,
                 section_path=section_path,
+                strategy_used=unit.strategy_used,
+                confidence_score=unit.confidence_score,
+                document_name=unit.document_name,
             )
         if kind == LDUKind.table:
             return self._ldu_from_table_block(
                 doc_id=doc_id,
                 block=unit.block,
                 section_path=section_path,
+                strategy_used=unit.strategy_used,
+                confidence_score=unit.confidence_score,
+                document_name=unit.document_name,
             )
         if kind == LDUKind.figure:
             return self._ldu_from_figure_block(
@@ -310,6 +337,9 @@ class ChunkingEngine:
                 block=unit.block,
                 section_path=section_path,
                 source_block_order=unit.source_block_order,
+                strategy_used=unit.strategy_used,
+                confidence_score=unit.confidence_score,
+                document_name=unit.document_name,
             )
         raise ValueError(f"Unsupported candidate kind: {kind}")
 
@@ -318,6 +348,9 @@ class ChunkingEngine:
         doc_id: str,
         block: TextBlock | TableBlock | FigureBlock,
         section_path: tuple[str, ...],
+        strategy_used: str,
+        confidence_score: float,
+        document_name: str,
     ) -> LDU:
         if not isinstance(block, TextBlock):
             raise TypeError("Expected TextBlock")
@@ -328,7 +361,12 @@ class ChunkingEngine:
             kind=LDUKind.text,
             text=block.text,
             section_path=section_path,
-            metadata={"block_type": block.block_type.value},
+            metadata={
+                "block_type": block.block_type.value,
+                "strategy_used": strategy_used,
+                "confidence_score": confidence_score,
+                "document_name": document_name,
+            },
             source_block_order=block.reading_order,
         )
 
@@ -337,6 +375,9 @@ class ChunkingEngine:
         doc_id: str,
         block: TextBlock | TableBlock | FigureBlock,
         section_path: tuple[str, ...],
+        strategy_used: str,
+        confidence_score: float,
+        document_name: str,
     ) -> LDU:
         if not isinstance(block, TableBlock):
             raise TypeError("Expected TableBlock")
@@ -354,6 +395,9 @@ class ChunkingEngine:
                 "block_type": block.block_type.value,
                 "header_row": header_row,
                 "row_count": len(block.rows),
+                "strategy_used": strategy_used,
+                "confidence_score": confidence_score,
+                "document_name": document_name,
             },
             source_block_order=10_000 + block.table_index,
         )
@@ -369,6 +413,9 @@ class ChunkingEngine:
         block: TextBlock | TableBlock | FigureBlock,
         section_path: tuple[str, ...],
         source_block_order: int,
+        strategy_used: str,
+        confidence_score: float,
+        document_name: str,
     ) -> LDU:
         if not isinstance(block, FigureBlock):
             raise TypeError("Expected FigureBlock")
@@ -383,6 +430,9 @@ class ChunkingEngine:
             metadata={
                 "block_type": block.block_type.value,
                 "caption": caption,
+                "strategy_used": strategy_used,
+                "confidence_score": confidence_score,
+                "document_name": document_name,
             },
             source_block_order=source_block_order,
         )

@@ -23,6 +23,8 @@ from src.chunking import (
     PageIndexBuilder,
     PageIndexQueryEngine,
     PageIndexSummarizer,
+    ProvenanceChainBuilder,
+    ProvenanceChainError,
     SummaryBackend,
     SummaryInput,
     VectorStoreError,
@@ -235,6 +237,7 @@ def print_query_results(
     section_matches: list[Any],
     baseline_matches: list[VectorStoreMatch],
     assisted_matches: list[VectorStoreMatch],
+    assisted_chain: dict[str, Any] | None,
 ) -> None:
     print(f"\n== Query: {topic} ==")
     print("PageIndex matches:")
@@ -251,6 +254,12 @@ def print_query_results(
     for match in assisted_matches:
         section = match.metadata.get("section_path_str", "<unknown>")
         print(f"  - id={match.record_id} section={section} distance={match.distance}")
+    if assisted_chain:
+        print("ProvenanceChain:")
+        for entry in assisted_chain["entries"]:
+            page_number = entry["provenance"]["page_number"]
+            bbox = entry["provenance"]["bbox"]
+            print(f"  - {entry['record_type']} {entry['record_id']} page={page_number} bbox={bbox}")
 
 
 def save_artifacts(
@@ -311,6 +320,7 @@ def main() -> int:
 
         topics = build_topics(summarized_tree, args.topics)
         query_engine = PageIndexQueryEngine()
+        provenance_builder = ProvenanceChainBuilder()
         query_outputs: list[dict[str, Any]] = []
 
         print(f"doc_id={extracted.doc_id}")
@@ -332,11 +342,17 @@ def main() -> int:
                 top_k=args.top_k,
             )
             baseline_matches = vector_store.query(topic, top_k=args.top_k)
+            assisted_chain: dict[str, Any] | None = None
+            try:
+                assisted_chain = provenance_builder.build(assisted_matches, query=topic).model_dump(mode="json")
+            except ProvenanceChainError:
+                assisted_chain = None
             print_query_results(
                 topic=topic,
                 section_matches=section_matches,
                 baseline_matches=baseline_matches,
                 assisted_matches=assisted_matches,
+                assisted_chain=assisted_chain,
             )
             query_outputs.append(
                 {
@@ -365,6 +381,7 @@ def main() -> int:
                         }
                         for match in assisted_matches
                     ],
+                    "provenance_chain": assisted_chain,
                 }
             )
 

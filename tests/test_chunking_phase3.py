@@ -22,6 +22,8 @@ from src.chunking import (
     PageIndexMatch,
     PageIndexQueryEngine,
     PageIndexSummarizer,
+    ProvenanceChainBuilder,
+    ProvenanceChainError,
     RetrievalEvaluator,
     SummaryBackendError,
     SummaryInput,
@@ -1582,11 +1584,134 @@ def test_vector_store_preserves_chunk_metadata() -> None:
 
     metadata = _require_last_upsert(collection)["metadatas"][0]
     assert metadata["doc_id"] == "doc123"
+    assert metadata["document_name"] == "sample.pdf"
     assert metadata["page_number"] == 1
+    assert metadata["bbox"] == [0.0, 0.0, 50.0, 32.0]
     assert metadata["section_path"] == ["2 Results"]
     assert metadata["chunk_id"] == chunk.chunk_id
     assert metadata["ldu_ids"] == chunk.ldu_ids
     assert metadata["content_hash"] == chunk.content_hash
+    assert metadata["strategy_used"] == "strategy_b"
+    assert metadata["confidence_score"] == 0.95
+
+
+def test_chunking_engine_propagates_page_provenance_metadata_into_ldus_and_chunks() -> None:
+    document = _document_from_pages(
+        ExtractedPage(
+            doc_id="doc123",
+            page_number=1,
+            metadata=_metadata(),
+            signals={"char_count": 40, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+            text_blocks=[
+                TextBlock(
+                    doc_id="doc123",
+                    page_number=1,
+                    text="2 Results",
+                    bbox=(0.0, 0.0, 50.0, 16.0),
+                    reading_order=0,
+                    content_hash="t1",
+                ),
+                TextBlock(
+                    doc_id="doc123",
+                    page_number=1,
+                    text="Precision improved by 8 percent.",
+                    bbox=(0.0, 20.0, 50.0, 32.0),
+                    reading_order=1,
+                    content_hash="t2",
+                ),
+            ],
+            page_content_hash="page1",
+        )
+    )
+    engine = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=200))
+
+    ldus = engine.build_ldus(document)
+    chunks = engine.build_chunks(document, ldus=ldus)
+
+    assert ldus[0].metadata["strategy_used"] == "strategy_b"
+    assert ldus[0].metadata["confidence_score"] == 0.95
+    assert ldus[0].metadata["document_name"] == "sample.pdf"
+    assert chunks[0].metadata["strategy_used"] == "strategy_b"
+    assert chunks[0].metadata["confidence_score"] == 0.95
+    assert chunks[0].metadata["document_name"] == "sample.pdf"
+
+
+def test_provenance_chain_builder_builds_grounded_entries_from_vector_matches() -> None:
+    chunk = ChunkingEngine(config=ChunkingConfig(max_chunk_chars=200)).build_chunks(
+        _document_from_pages(
+            ExtractedPage(
+                doc_id="doc123",
+                page_number=1,
+                metadata=_metadata(),
+                signals={"char_count": 40, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+                text_blocks=[
+                    TextBlock(
+                        doc_id="doc123",
+                        page_number=1,
+                        text="2 Results",
+                        bbox=(0.0, 0.0, 50.0, 16.0),
+                        reading_order=0,
+                        content_hash="t1",
+                    ),
+                    TextBlock(
+                        doc_id="doc123",
+                        page_number=1,
+                        text="Precision improved by 8 percent.",
+                        bbox=(0.0, 20.0, 50.0, 32.0),
+                        reading_order=1,
+                        content_hash="t2",
+                    ),
+                ],
+                page_content_hash="page1",
+            )
+        )
+    )[0]
+    match = VectorStoreMatch(
+        record_id=chunk.chunk_id or "missing",
+        text=chunk.text,
+        metadata={
+            "record_type": "chunk",
+            "doc_id": chunk.doc_id,
+            "document_name": "sample.pdf",
+            "page_number": chunk.page_number,
+            "bbox": list(chunk.bbox),
+            "section_path": list(chunk.section_path),
+            "content_hash": chunk.content_hash,
+            "strategy_used": chunk.metadata["strategy_used"],
+            "confidence_score": chunk.metadata["confidence_score"],
+        },
+        distance=0.125,
+    )
+
+    chain = ProvenanceChainBuilder().build([match], query="results precision")
+
+    assert chain.query == "results precision"
+    assert len(chain.entries) == 1
+    assert chain.entries[0].record_id == chunk.chunk_id
+    assert chain.entries[0].record_type == "chunk"
+    assert chain.entries[0].section_path == ("2 Results",)
+    assert chain.entries[0].provenance.document_name == "sample.pdf"
+    assert chain.entries[0].provenance.strategy_used.value == "strategy_b"
+    assert chain.entries[0].provenance.bbox == (0.0, 0.0, 50.0, 32.0)
+
+
+def test_provenance_chain_builder_rejects_matches_without_bbox() -> None:
+    match = VectorStoreMatch(
+        record_id="chunk-1",
+        text="Precision improved by 8 percent.",
+        metadata={
+            "record_type": "chunk",
+            "doc_id": "doc123",
+            "page_number": 1,
+            "content_hash": "hash-1",
+            "strategy_used": "strategy_b",
+            "confidence_score": 0.95,
+        },
+        distance=0.1,
+    )
+
+    with pytest.raises(ProvenanceChainError, match="bbox is required"):
+        ProvenanceChainBuilder().build([match], query="results")
 
 
 def test_vector_store_omits_empty_section_path_metadata_for_root_records() -> None:

@@ -161,14 +161,18 @@ class ChromaVectorStore:
         metadata = {
             "record_type": "ldu",
             "doc_id": ldu.doc_id,
+            "document_name": ldu.metadata.get("document_name", ldu.doc_id),
             "page_number": ldu.page_number,
             "start_page": ldu.page_number,
             "end_page": ldu.page_number,
+            "bbox": list(ldu.bbox),
             "section_path_str": self._section_path_string(ldu.section_path),
             "chunk_id": None,
             "ldu_ids": [self._require_id(ldu.ldu_id, "LDU")],
             "content_hash": ldu.content_hash,
             "content_hashes": [ldu.content_hash],
+            "strategy_used": ldu.metadata.get("strategy_used"),
+            "confidence_score": ldu.metadata.get("confidence_score"),
         }
         if ldu.section_path:
             metadata["section_path"] = list(ldu.section_path)
@@ -178,14 +182,18 @@ class ChromaVectorStore:
         metadata = {
             "record_type": "chunk",
             "doc_id": chunk.doc_id,
+            "document_name": chunk.metadata.get("document_name", chunk.doc_id),
             "page_number": chunk.page_number,
             "start_page": chunk.page_number,
             "end_page": chunk.page_number,
+            "bbox": list(chunk.bbox),
             "section_path_str": self._section_path_string(chunk.section_path),
             "chunk_id": self._require_id(chunk.chunk_id, "Chunk"),
             "ldu_ids": list(chunk.ldu_ids),
             "content_hash": chunk.content_hash,
             "content_hashes": [chunk.content_hash],
+            "strategy_used": chunk.metadata.get("strategy_used"),
+            "confidence_score": chunk.metadata.get("confidence_score"),
         }
         if chunk.section_path:
             metadata["section_path"] = list(chunk.section_path)
