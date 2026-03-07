@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from src.agents.audit_mode import AuditMode, AuditResult, ClaimVerificationResult
 from src.agents.fact_table_extractor import FactTableExtractor
 from src.agents.query_agent import QueryAgent, QueryAgentResult
+from src.agents.structured_fact_query import StructuredFactQueryBackend
 from src.chunking.engine import ChunkingEngine
 from src.chunking.page_index import PageIndexBuilder, PageIndexTree
 from src.chunking.page_index_query import PageIndexQueryEngine
 from src.chunking.page_index_summarizer import PageIndexSummarizer, SummaryBackend
 from src.chunking.vector_store import ChromaVectorStore
 from src.models import Chunk, ExtractedDocument, FactTable, LDU
+from src.storage import FactTableSqliteWriter
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,7 @@ class Phase4Pipeline:
         self.query_agent = query_agent or QueryAgent(
             page_index_backend=self.page_index_query,
             vector_backend=self.vector_store,
+            structured_query_backend=StructuredFactQueryBackend(),
         )
         self.audit_mode = audit_mode or AuditMode()
         self.fact_table_extractor = fact_table_extractor or FactTableExtractor(
@@ -76,6 +80,14 @@ class Phase4Pipeline:
         chunks = tuple(self.chunking_engine.build_chunks(extracted, ldus=list(ldus)))
         tree = PageIndexBuilder().build(doc_id=extracted.doc_id, ldus=list(ldus))
         summarized_tree = PageIndexSummarizer(self.summary_backend).summarize_tree(tree=tree, ldus=list(ldus))
+        fact_table = self.fact_table_extractor.extract(extracted)
+        structured_db_path = self._structured_fact_db_path(extracted.doc_id)
+        FactTableSqliteWriter().write(
+            fact_table=fact_table,
+            db_path=structured_db_path,
+        )
+        if self.query_agent.structured_query_backend is not None:
+            self.query_agent.structured_query_backend.configure(db_path=structured_db_path)
 
         self.vector_store.ingest_ldus(list(ldus))
         self.vector_store.ingest_chunks(list(chunks))
@@ -107,7 +119,6 @@ class Phase4Pipeline:
             claim_verifications_list.append(self.audit_mode.verify_claim(claim, claim_query_result))
         claim_verifications = tuple(claim_verifications_list)
 
-        fact_table = self.fact_table_extractor.extract(extracted)
         return Phase4PipelineResult(
             extracted=extracted,
             ldus=ldus,
@@ -117,3 +128,6 @@ class Phase4Pipeline:
             query_runs=query_runs,
             claim_verifications=claim_verifications,
         )
+
+    def _structured_fact_db_path(self, doc_id: str) -> Path:
+        return Path(".refinery/structured_query") / f"{doc_id}.sqlite"

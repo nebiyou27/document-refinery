@@ -7,10 +7,14 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from src.agents.fact_table_extractor import FactTableExtractor
 from src.agents.query_agent import QueryAgent
+from src.agents.structured_fact_query import StructuredFactQueryBackend
 from src.chunking.page_index import PageIndexTree
 from src.chunking.page_index_query import PageIndexMatch
 from src.chunking.vector_store import VectorStoreMatch
+from src.models.extracted_document import ExtractedDocument, ExtractedPage, ExtractionMetadata, TableBlock
+from src.storage import FactTableSqliteWriter
 
 
 class FakePageIndexBackend:
@@ -49,6 +53,45 @@ class FakeVectorBackend:
 
 def _tree() -> PageIndexTree:
     return PageIndexTree(doc_id="doc123", root_id="root", nodes=[])
+
+
+def _metadata() -> ExtractionMetadata:
+    return ExtractionMetadata(
+        strategy_used="strategy_b",
+        confidence_score=0.96,
+        processing_time_sec=0.01,
+        cost_estimate_usd=0.0,
+        escalation_triggered=False,
+    )
+
+
+def _document_with_table(rows: list[list[str]]) -> ExtractedDocument:
+    return ExtractedDocument(
+        doc_id="doc123",
+        file_name="finance.pdf",
+        file_path="data/finance.pdf",
+        page_count=1,
+        metadata=_metadata(),
+        pages=[
+            ExtractedPage(
+                doc_id="doc123",
+                page_number=1,
+                metadata=_metadata(),
+                signals={"char_count": 0, "char_density": 0.0, "image_area_ratio": 0.0, "table_count": 1},
+                table_blocks=[
+                    TableBlock(
+                        doc_id="doc123",
+                        page_number=1,
+                        bbox=(0.0, 50.0, 200.0, 160.0),
+                        content_hash="table-hash-1",
+                        table_index=0,
+                        rows=rows,
+                    )
+                ],
+                page_content_hash="page-hash-1",
+            )
+        ],
+    )
 
 
 def _page_index_match(section_path: tuple[str, ...]) -> PageIndexMatch:
@@ -184,3 +227,36 @@ def test_query_agent_returns_unverifiable_when_provenance_cannot_be_built() -> N
     assert result.answer is None
     assert result.provenance_chain is None
     assert "bbox is required" in (result.failure_reason or "")
+
+
+def test_query_agent_answers_fact_query_from_structured_sqlite(tmp_path: Path) -> None:
+    document = _document_with_table(
+        [
+            ["Category", "30June2022 Birr'ooo", "30June2021 As Restated Birr'ooo"],
+            ["Cashand cashequivalentsat the endoftheyear", "28,191,157", "15,194,080"],
+        ]
+    )
+    db_path = tmp_path / "fact_table.sqlite"
+    FactTableSqliteWriter().write(
+        fact_table=FactTableExtractor().extract(document),
+        db_path=db_path,
+    )
+    vector_backend = FakeVectorBackend(responses={})
+    result = QueryAgent(
+        page_index_backend=FakePageIndexBackend(responses={}),
+        vector_backend=vector_backend,
+        structured_query_backend=StructuredFactQueryBackend(db_path=db_path),
+    ).answer(
+        tree=_tree(),
+        query="What were cash and cash equivalents at the end of the year?",
+    )
+
+    assert result.status == "verified"
+    assert result.route == "structured_query"
+    assert result.answer is not None
+    assert "28,191,157" in result.answer
+    assert "15,194,080" in result.answer
+    assert result.provenance_chain is not None
+    assert len(result.provenance_chain.entries) == 2
+    assert result.provenance_chain.entries[0].provenance.page_number == 1
+    assert vector_backend.calls == []

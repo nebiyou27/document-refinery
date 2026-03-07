@@ -156,3 +156,56 @@ def test_phase4_pipeline_emits_queries_audit_and_fact_table() -> None:
     assert result.claim_verifications[0].status == "verified"
     assert len(result.fact_table.entries) == 1
     assert result.fact_table.entries[0].numeric_value == 250.0
+
+
+def test_phase4_pipeline_uses_structured_query_for_fact_questions() -> None:
+    store = ChromaVectorStore(
+        embedding_backend=FakeEmbeddingBackend(),
+        collection=FakeChromaCollection(),
+    )
+    pipeline = Phase4Pipeline(
+        vector_store=store,
+        summary_backend=FakeSummaryBackend(),
+    )
+    document = ExtractedDocument(
+        doc_id="doc-fact",
+        file_name="finance.pdf",
+        file_path="data/finance.pdf",
+        page_count=1,
+        metadata=_metadata(),
+        pages=[
+            ExtractedPage(
+                doc_id="doc-fact",
+                page_number=1,
+                metadata=_metadata(),
+                signals={"char_count": 10, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 1},
+                table_blocks=[
+                    TableBlock(
+                        doc_id="doc-fact",
+                        page_number=1,
+                        bbox=(0.0, 40.0, 200.0, 120.0),
+                        content_hash="table-cash",
+                        table_index=0,
+                        rows=[
+                            ["Category", "30June2022 Birr'ooo", "30June2021 As Restated Birr'ooo"],
+                            ["Cashand cashequivalentsat the endoftheyear", "28,191,157", "15,194,080"],
+                        ],
+                    )
+                ],
+                page_content_hash="page-cash",
+            )
+        ],
+    )
+
+    result = pipeline.run(
+        extracted=document,
+        queries=["What were cash and cash equivalents at the end of the year?"],
+        claims=[],
+    )
+
+    assert len(result.query_runs) == 1
+    assert result.query_runs[0].query_result.route == "structured_query"
+    assert result.query_runs[0].query_result.status == "verified"
+    assert "28,191,157" in (result.query_runs[0].query_result.answer or "")
+    assert result.query_runs[0].query_result.provenance_chain is not None
+    assert result.query_runs[0].query_result.provenance_chain.entries[0].provenance.document_name == "finance.pdf"

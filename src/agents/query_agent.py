@@ -8,6 +8,7 @@ from src.chunking.page_index import PageIndexTree
 from src.chunking.page_index_query import PageIndexMatch, PageIndexQueryEngine
 from src.chunking.provenance import ProvenanceChainBuilder, ProvenanceChainError
 from src.chunking.vector_store import VectorStoreMatch
+from src.agents.structured_fact_query import StructuredFactQueryBackend
 from src.models import ProvenanceChain
 from src.utils.hashing import canonicalize_text
 
@@ -35,10 +36,12 @@ class QueryAgent:
         page_index_backend: PageIndexQueryEngine,
         vector_backend,
         provenance_builder: ProvenanceChainBuilder | None = None,
+        structured_query_backend: StructuredFactQueryBackend | None = None,
     ) -> None:
         self.page_index_backend = page_index_backend
         self.vector_backend = vector_backend
         self.provenance_builder = provenance_builder or ProvenanceChainBuilder()
+        self.structured_query_backend = structured_query_backend
 
     def answer(
         self,
@@ -49,6 +52,20 @@ class QueryAgent:
         section_top_k: int = 3,
         record_type: str = "chunk",
     ) -> QueryAgentResult:
+        if self.structured_query_backend is not None:
+            structured_result = self.structured_query_backend.answer(query)
+            if structured_result is not None:
+                return QueryAgentResult(
+                    query=query,
+                    status="verified",
+                    answer=structured_result.answer,
+                    provenance_chain=structured_result.provenance_chain,
+                    retrieval_matches=(),
+                    page_index_matches=(),
+                    route="structured_query",
+                    failure_reason=None,
+                )
+
         page_index_matches = tuple(self.page_index_backend.query(tree, query, top_k=section_top_k))
         assisted_matches = tuple(
             self._assisted_retrieve(
