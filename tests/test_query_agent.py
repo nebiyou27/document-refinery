@@ -389,3 +389,102 @@ def test_query_agent_parts_query_lexical_fallback_prefers_final_research_summary
     assert result.route == "pageindex_lexical"
     assert result.answer is not None
     assert "Parts of the Final Research" in result.answer
+
+
+def test_query_agent_numeric_query_uses_hybrid_variants_and_reranks_table_like_chunk() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"combined ratio 2018": [_page_index_match(("3 Financial Highlights",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("combined ratio 2018", ("3 Financial Highlights",)): [
+                _vector_match(
+                    "chunk-narrative",
+                    "The global reinsurance sector saw changing demand conditions in 2017 and 2018.",
+                    section_path=("3 Global Reinsurance Sector",),
+                )
+            ],
+            ("combined ratio 2018 financial highlights", ("3 Financial Highlights",)): [
+                _vector_match(
+                    "chunk-table",
+                    "Financial highlights table: Combined ratio 2018 | 96.4%; 2017 | 98.1%",
+                    section_path=("3 Financial Highlights",),
+                )
+            ],
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="combined ratio 2018",
+        top_k=1,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert "Combined ratio 2018" in result.answer
+    assert any(call["topic"] == "combined ratio 2018 financial highlights" for call in vector_backend.calls)
+
+
+def test_query_agent_section_query_penalizes_front_matter_chunk() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"research questions": [_page_index_match(("1 Introduction",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("research questions", ("1 Introduction",)): [
+                _vector_match(
+                    "chunk-front",
+                    "Title page and author student ID details for the submission.",
+                    section_path=("Title Page",),
+                ),
+                _vector_match(
+                    "chunk-core",
+                    "Research Questions: This study addresses two research questions on retention.",
+                    section_path=("1.2 Research Questions",),
+                ),
+            ]
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="research questions",
+        top_k=1,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert result.answer.startswith("Research Questions")
+
+
+def test_query_agent_definition_query_prefers_definition_over_author_list() -> None:
+    page_index_backend = FakePageIndexBackend(
+        responses={"definition of leverage": [_page_index_match(("2 Concepts",))]}
+    )
+    vector_backend = FakeVectorBackend(
+        responses={
+            ("definition of leverage", ("2 Concepts",)): [
+                _vector_match(
+                    "chunk-front",
+                    "Author names and student ID list from the title page.",
+                    section_path=("Title Page",),
+                ),
+                _vector_match(
+                    "chunk-def",
+                    "Leverage is the use of debt to amplify potential returns.",
+                    section_path=("2 Concepts",),
+                ),
+            ]
+        }
+    )
+
+    result = QueryAgent(page_index_backend=page_index_backend, vector_backend=vector_backend).answer(
+        tree=_tree(),
+        query="definition of leverage",
+        top_k=1,
+    )
+
+    assert result.status == "verified"
+    assert result.answer is not None
+    assert result.answer.startswith("Leverage is")

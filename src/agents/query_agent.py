@@ -81,19 +81,18 @@ class QueryAgent:
         retrieval_matches = assisted_matches
         if not retrieval_matches:
             route = "baseline_vector"
-            retrieval_matches = tuple(
-                self.vector_backend.query(
-                    query,
-                    top_k=top_k,
-                    record_type=record_type,
-                )
-            )
+            retrieval_matches = tuple(self._baseline_retrieve(query=query, top_k=top_k, record_type=record_type))
 
         if retrieval_matches:
+            retrieval_matches = self._rerank_matches_for_query(
+                query=query,
+                retrieval_matches=retrieval_matches,
+            )
             retrieval_matches = self._rerank_matches_for_definitional_query(
                 query=query,
                 retrieval_matches=retrieval_matches,
             )
+            retrieval_matches = retrieval_matches[:top_k]
 
         if not retrieval_matches:
             lexical_fallback = self._pageindex_lexical_fallback(
@@ -172,12 +171,17 @@ class QueryAgent:
         collected: list[VectorStoreMatch] = []
         seen_record_ids: set[str] = set()
         retrieval_queries = self._build_assisted_retrieval_queries(query)
+        intent = self._detect_query_intent(canonicalize_text(query).lower())
+        per_query_top_k = top_k
+        if len(retrieval_queries) > 1 or any(intent.values()):
+            per_query_top_k = max(top_k, 3)
+        max_candidates = max(top_k, top_k * len(retrieval_queries))
 
         for section_match in page_index_matches:
             for retrieval_query in retrieval_queries:
                 vector_matches = self.vector_backend.query(
                     retrieval_query,
-                    top_k=top_k,
+                    top_k=per_query_top_k,
                     section_path=section_match.section_path,
                     record_type=record_type,
                 )
@@ -186,8 +190,35 @@ class QueryAgent:
                         continue
                     seen_record_ids.add(vector_match.record_id)
                     collected.append(vector_match)
-                    if len(collected) >= top_k:
+                    if len(collected) >= max_candidates:
                         return collected
+        return collected
+
+    def _baseline_retrieve(
+        self,
+        *,
+        query: str,
+        top_k: int,
+        record_type: str,
+    ) -> list[VectorStoreMatch]:
+        retrieval_queries = self._build_assisted_retrieval_queries(query)
+        collected: list[VectorStoreMatch] = []
+        seen_record_ids: set[str] = set()
+        intent = self._detect_query_intent(canonicalize_text(query).lower())
+        per_query_top_k = top_k
+        if len(retrieval_queries) > 1 or any(intent.values()):
+            per_query_top_k = max(top_k, 3)
+        for retrieval_query in retrieval_queries:
+            vector_matches = self.vector_backend.query(
+                retrieval_query,
+                top_k=per_query_top_k,
+                record_type=record_type,
+            )
+            for vector_match in vector_matches:
+                if vector_match.record_id in seen_record_ids:
+                    continue
+                seen_record_ids.add(vector_match.record_id)
+                collected.append(vector_match)
         return collected
 
     def _synthesize_answer(
@@ -391,6 +422,75 @@ class QueryAgent:
         scored_sorted = sorted(scored, key=lambda item: (-item[0], item[1]))
         return tuple(match for _, _, match in scored_sorted)
 
+    def _rerank_matches_for_query(
+        self,
+        *,
+        query: str,
+        retrieval_matches: tuple[VectorStoreMatch, ...],
+    ) -> tuple[VectorStoreMatch, ...]:
+        normalized_query = canonicalize_text(query).lower()
+        tokens = self._query_tokens(normalized_query)
+        if not tokens:
+            return retrieval_matches
+
+        intent = self._detect_query_intent(normalized_query)
+        is_content_query = (
+            intent["is_definitional"]
+            or intent["is_section"]
+            or intent["is_numeric_financial"]
+            or len(tokens) >= 2
+        )
+
+        scored: list[tuple[int, float, int, VectorStoreMatch]] = []
+        any_positive = False
+        for index, match in enumerate(retrieval_matches):
+            snippet = canonicalize_text(match.text).lower()
+            section_text = self._section_text(match)
+            haystack = f"{section_text} {snippet}".strip()
+
+            overlap = sum(1 for token in tokens if token in haystack)
+            section_overlap = sum(1 for token in tokens if token in section_text)
+            score = overlap + (2 * section_overlap)
+
+            if intent["is_definitional"]:
+                if snippet.startswith("what is ") or snippet.startswith("what are "):
+                    score += 2
+                if " is " in snippet:
+                    score += 1
+                if any(term in snippet for term in ("definition", "defined as", "refers to")):
+                    score += 2
+
+            if intent["is_section"]:
+                if any(keyword in section_text for keyword in self._section_query_keywords()):
+                    score += 3
+                if section_text and re.search(r"\b\d+(\.\d+)*\b", section_text):
+                    score += 1
+
+            if intent["is_numeric_financial"]:
+                if any(term in haystack for term in self._financial_query_keywords()):
+                    score += 2
+                if re.search(r"\b(19|20)\d{2}\b", normalized_query) and re.search(r"\b(19|20)\d{2}\b", haystack):
+                    score += 2
+                if re.search(r"\d", snippet):
+                    score += 1
+                if any(marker in snippet for marker in ("|", ";", "table", "highlights")):
+                    score += 1
+
+            if is_content_query and self._looks_like_non_core_section(haystack):
+                score -= 4
+
+            if score > 0:
+                any_positive = True
+
+            distance = match.distance if isinstance(match.distance, (float, int)) else 1e9
+            scored.append((score, float(distance), index, match))
+
+        if not any_positive:
+            return retrieval_matches
+
+        scored_sorted = sorted(scored, key=lambda item: (-item[0], item[1], item[2]))
+        return tuple(match for _, _, _, match in scored_sorted)
+
     def _rerank_matches_for_parts_list_query(
         self,
         *,
@@ -482,6 +582,24 @@ class QueryAgent:
             return (query,)
 
         queries: list[str] = [base]
+        normalized = base.lower()
+        intent = self._detect_query_intent(normalized)
+
+        if intent["is_definitional"]:
+            key_phrase = self._extract_definitional_key_phrase(normalized)
+            if key_phrase:
+                queries.append(f"{key_phrase} definition")
+                queries.append(f"{key_phrase} is")
+                queries.append(f"what is {key_phrase}")
+
+        if intent["is_section"]:
+            queries.append(f"{base} section")
+            queries.append(f"{base} heading")
+
+        if intent["is_numeric_financial"]:
+            queries.append(f"{base} financial highlights")
+            queries.append(f"{base} table")
+
         if self._is_parts_list_query(base):
             target = self._extract_parts_target_phrase(base)
             if target:
@@ -498,3 +616,109 @@ class QueryAgent:
             seen.add(lowered)
             deduped.append(candidate)
         return tuple(deduped)
+
+    def _detect_query_intent(self, normalized_query: str) -> dict[str, bool]:
+        definitional_prefixes = (
+            "what is ",
+            "what is a ",
+            "what is an ",
+            "what are ",
+            "define ",
+            "definition of ",
+        )
+        is_definitional = any(normalized_query.startswith(prefix) for prefix in definitional_prefixes)
+        is_section = any(keyword in normalized_query for keyword in self._section_query_keywords())
+        has_year = re.search(r"\b(19|20)\d{2}\b", normalized_query) is not None
+        is_numeric_financial = has_year or any(
+            keyword in normalized_query for keyword in self._financial_query_keywords()
+        )
+        return {
+            "is_definitional": is_definitional,
+            "is_section": is_section,
+            "is_numeric_financial": is_numeric_financial,
+        }
+
+    def _extract_definitional_key_phrase(self, normalized_query: str) -> str:
+        prefixes = (
+            "what is ",
+            "what is a ",
+            "what is an ",
+            "what are ",
+            "define ",
+            "definition of ",
+        )
+        key_phrase = normalized_query
+        for prefix in prefixes:
+            if key_phrase.startswith(prefix):
+                key_phrase = key_phrase[len(prefix) :]
+                break
+        return key_phrase.strip(" ?!.,;:\"'")
+
+    def _query_tokens(self, query: str) -> tuple[str, ...]:
+        stopwords = {
+            "a",
+            "an",
+            "and",
+            "are",
+            "as",
+            "at",
+            "by",
+            "for",
+            "from",
+            "in",
+            "is",
+            "of",
+            "on",
+            "or",
+            "the",
+            "to",
+            "what",
+        }
+        tokens = [token for token in re.findall(r"[a-z0-9]+", query) if token not in stopwords]
+        return tuple(dict.fromkeys(tokens))
+
+    def _section_query_keywords(self) -> tuple[str, ...]:
+        return (
+            "research question",
+            "research questions",
+            "objective",
+            "objectives",
+            "methodology",
+            "results",
+            "conclusion",
+            "statement of the problem",
+        )
+
+    def _financial_query_keywords(self) -> tuple[str, ...]:
+        return (
+            "ratio",
+            "profit",
+            "assets",
+            "liabilities",
+            "premium",
+            "premiums",
+            "claims",
+            "cash flow",
+            "cashflows",
+        )
+
+    def _section_text(self, match: VectorStoreMatch) -> str:
+        section_path_value = match.metadata.get("section_path")
+        if not isinstance(section_path_value, list):
+            return ""
+        section_path = [str(item) for item in section_path_value if isinstance(item, str)]
+        return canonicalize_text(" ".join(section_path)).lower()
+
+    def _looks_like_non_core_section(self, text: str) -> bool:
+        non_core_markers = (
+            "title page",
+            "author",
+            "student id",
+            "student number",
+            "acknowledgment",
+            "acknowledgement",
+            "references",
+            "appendix",
+            "table of contents",
+        )
+        return any(marker in text for marker in non_core_markers)
