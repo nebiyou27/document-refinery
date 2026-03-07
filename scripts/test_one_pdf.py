@@ -15,6 +15,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from src.agents.extractor import run_extraction
+from src.agents.query_agent import QueryAgent, QueryAgentResult
 from src.chunking import (
     ChromaVectorStore,
     ChunkingConfig,
@@ -23,8 +24,6 @@ from src.chunking import (
     PageIndexBuilder,
     PageIndexQueryEngine,
     PageIndexSummarizer,
-    ProvenanceChainBuilder,
-    ProvenanceChainError,
     SummaryBackend,
     SummaryInput,
     VectorStoreError,
@@ -159,37 +158,6 @@ def build_topics(tree: PageIndexTree, requested_topics: list[str]) -> list[str]:
     return derived_topics[:3]
 
 
-def assisted_retrieve(
-    *,
-    topic: str,
-    tree: PageIndexTree,
-    query_engine: PageIndexQueryEngine,
-    vector_store: ChromaVectorStore,
-    top_k: int,
-) -> tuple[list[Any], list[VectorStoreMatch]]:
-    section_matches = query_engine.query(tree=tree, topic=topic, top_k=3)
-    results: list[VectorStoreMatch] = []
-    seen_record_ids: set[str] = set()
-
-    for section_match in section_matches:
-        candidates = vector_store.query(
-            topic,
-            top_k=top_k,
-            section_path=section_match.section_path,
-        )
-        for candidate in candidates:
-            if candidate.record_id in seen_record_ids:
-                continue
-            seen_record_ids.add(candidate.record_id)
-            results.append(candidate)
-            if len(results) >= top_k:
-                break
-        if len(results) >= top_k:
-            break
-
-    return section_matches, results
-
-
 def print_tree(tree: PageIndexTree) -> None:
     print("\n== Sections / PageIndex Tree ==")
     nodes_by_parent: dict[str | None, list[PageIndexNode]] = {}
@@ -233,15 +201,17 @@ def print_node_summaries(tree: PageIndexTree) -> None:
 
 def print_query_results(
     *,
-    topic: str,
-    section_matches: list[Any],
+    result: QueryAgentResult,
     baseline_matches: list[VectorStoreMatch],
-    assisted_matches: list[VectorStoreMatch],
-    assisted_chain: dict[str, Any] | None,
 ) -> None:
-    print(f"\n== Query: {topic} ==")
+    print(f"\n== Query: {result.query} ==")
+    print(f"Status: {result.status} route={result.route}")
+    if result.answer:
+        print(f"Answer: {result.answer}")
+    if result.failure_reason:
+        print(f"Failure: {result.failure_reason}")
     print("PageIndex matches:")
-    for match in section_matches:
+    for match in result.page_index_matches:
         section = " > ".join(match.section_path)
         print(f"  - {section} score={match.score} pages={match.start_page}-{match.end_page}")
 
@@ -250,13 +220,13 @@ def print_query_results(
         section = match.metadata.get("section_path_str", "<unknown>")
         print(f"  - id={match.record_id} section={section} distance={match.distance}")
 
-    print("PageIndex-assisted retrieval:")
-    for match in assisted_matches:
+    print("Selected retrieval matches:")
+    for match in result.retrieval_matches:
         section = match.metadata.get("section_path_str", "<unknown>")
         print(f"  - id={match.record_id} section={section} distance={match.distance}")
-    if assisted_chain:
+    if result.provenance_chain:
         print("ProvenanceChain:")
-        for entry in assisted_chain["entries"]:
+        for entry in result.provenance_chain.model_dump(mode="json")["entries"]:
             page_number = entry["provenance"]["page_number"]
             bbox = entry["provenance"]["bbox"]
             print(f"  - {entry['record_type']} {entry['record_id']} page={page_number} bbox={bbox}")
@@ -320,7 +290,10 @@ def main() -> int:
 
         topics = build_topics(summarized_tree, args.topics)
         query_engine = PageIndexQueryEngine()
-        provenance_builder = ProvenanceChainBuilder()
+        query_agent = QueryAgent(
+            page_index_backend=query_engine,
+            vector_backend=vector_store,
+        )
         query_outputs: list[dict[str, Any]] = []
 
         print(f"doc_id={extracted.doc_id}")
@@ -334,36 +307,30 @@ def main() -> int:
         print_node_summaries(summarized_tree)
 
         for topic in topics:
-            section_matches, assisted_matches = assisted_retrieve(
-                topic=topic,
+            result = query_agent.answer(
                 tree=summarized_tree,
-                query_engine=query_engine,
-                vector_store=vector_store,
+                query=topic,
                 top_k=args.top_k,
             )
             baseline_matches = vector_store.query(topic, top_k=args.top_k)
-            assisted_chain: dict[str, Any] | None = None
-            try:
-                assisted_chain = provenance_builder.build(assisted_matches, query=topic).model_dump(mode="json")
-            except ProvenanceChainError:
-                assisted_chain = None
             print_query_results(
-                topic=topic,
-                section_matches=section_matches,
+                result=result,
                 baseline_matches=baseline_matches,
-                assisted_matches=assisted_matches,
-                assisted_chain=assisted_chain,
             )
             query_outputs.append(
                 {
                     "topic": topic,
+                    "status": result.status,
+                    "route": result.route,
+                    "answer": result.answer,
+                    "failure_reason": result.failure_reason,
                     "pageindex_matches": [
                         {
                             "section_path": list(match.section_path),
                             "score": match.score,
                             "pages": [match.start_page, match.end_page],
                         }
-                        for match in section_matches
+                        for match in result.page_index_matches
                     ],
                     "baseline": [
                         {
@@ -373,15 +340,17 @@ def main() -> int:
                         }
                         for match in baseline_matches
                     ],
-                    "pageindex_assisted": [
+                    "selected_matches": [
                         {
                             "record_id": match.record_id,
                             "section_path": match.metadata.get("section_path", []),
                             "distance": match.distance,
                         }
-                        for match in assisted_matches
+                        for match in result.retrieval_matches
                     ],
-                    "provenance_chain": assisted_chain,
+                    "provenance_chain": (
+                        result.provenance_chain.model_dump(mode="json") if result.provenance_chain else None
+                    ),
                 }
             )
 
