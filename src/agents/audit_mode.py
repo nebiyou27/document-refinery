@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import re
 
 from src.agents.query_agent import QueryAgentResult
-from src.models import ProvenanceChainEntry
+from src.models import ProvenanceChain, ProvenanceChainEntry
 from src.utils.hashing import canonicalize_text
 
 
@@ -26,6 +26,18 @@ class AuditResult:
 
     status: str
     findings: tuple[AuditFinding, ...]
+    failure_reason: str | None = None
+
+
+@dataclass(frozen=True)
+class ClaimVerificationResult:
+    """Outcome of verifying a single claim against retrieved provenance."""
+
+    claim: str
+    status: str
+    provenance_chain: ProvenanceChain | None
+    support_ratio: float
+    supporting_record_ids: tuple[str, ...]
     failure_reason: str | None = None
 
 
@@ -57,6 +69,52 @@ class AuditMode:
             status=overall_status,
             findings=findings,
             failure_reason=None if overall_status == "passed" else "One or more claims lack provenance support",
+        )
+
+    def verify_claim(self, claim: str, result: QueryAgentResult) -> ClaimVerificationResult:
+        normalized_claim = canonicalize_text(claim)
+        if not normalized_claim:
+            return ClaimVerificationResult(
+                claim=claim,
+                status="unverifiable",
+                provenance_chain=None,
+                support_ratio=0.0,
+                supporting_record_ids=(),
+                failure_reason="Claim is empty after normalization",
+            )
+
+        if result.status != "verified" or result.provenance_chain is None:
+            return ClaimVerificationResult(
+                claim=claim,
+                status="unverifiable",
+                provenance_chain=None,
+                support_ratio=0.0,
+                supporting_record_ids=(),
+                failure_reason="No verified evidence available for claim",
+            )
+
+        finding = self._audit_claim(normalized_claim, result.provenance_chain.entries)
+        if not finding.supported:
+            return ClaimVerificationResult(
+                claim=claim,
+                status="unverifiable",
+                provenance_chain=None,
+                support_ratio=finding.support_ratio,
+                supporting_record_ids=finding.supporting_record_ids,
+                failure_reason="Claim not found in retrieved evidence",
+            )
+
+        supported_entries = tuple(
+            entry for entry in result.provenance_chain.entries if entry.record_id in finding.supporting_record_ids
+        )
+        provenance_chain = ProvenanceChain(entries=supported_entries, query=result.query)
+        return ClaimVerificationResult(
+            claim=claim,
+            status="verified",
+            provenance_chain=provenance_chain,
+            support_ratio=finding.support_ratio,
+            supporting_record_ids=finding.supporting_record_ids,
+            failure_reason=None,
         )
 
     def _audit_claim(

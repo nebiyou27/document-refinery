@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import hashlib
 import json
 import re
@@ -311,7 +312,7 @@ def main() -> int:
         for query_run in pipeline_result.query_runs:
             result = query_run.query_result
             baseline_matches = vector_store.query(result.query, top_k=args.top_k)
-            audit_result = query_run.audit_result.__dict__
+            audit_result = asdict(query_run.audit_result)
             print_query_results(
                 query_run=query_run,
                 audit_result=audit_result,

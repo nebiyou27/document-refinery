@@ -143,6 +143,7 @@ def test_phase4_pipeline_emits_queries_audit_and_fact_table() -> None:
     result = pipeline.run(
         extracted=_document(),
         queries=["results revenue"],
+        claims=["Revenue improved by 250."],
         top_k=2,
     )
 
@@ -151,5 +152,7 @@ def test_phase4_pipeline_emits_queries_audit_and_fact_table() -> None:
     assert len(result.query_runs) == 1
     assert result.query_runs[0].query_result.status == "verified"
     assert result.query_runs[0].audit_result.status == "passed"
+    assert len(result.claim_verifications) == 1
+    assert result.claim_verifications[0].status == "verified"
     assert len(result.fact_table.entries) == 1
     assert result.fact_table.entries[0].numeric_value == 250.0

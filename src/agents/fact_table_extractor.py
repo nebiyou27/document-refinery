@@ -81,6 +81,8 @@ class FactTableExtractor:
                 if numeric_value is None:
                     continue
                 column_label = header[column_index]
+                if not column_label:
+                    continue
                 unit = self._infer_unit(column_label=column_label, row_label=row_label, raw_value=raw_value)
                 provenance = ProvenanceRef(
                     document_name=document_name,

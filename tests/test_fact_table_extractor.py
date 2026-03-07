@@ -104,3 +104,18 @@ def test_fact_table_extractor_parses_negative_parenthetical_values() -> None:
 
     assert len(fact_table.entries) == 1
     assert fact_table.entries[0].numeric_value == -250.5
+
+
+def test_fact_table_extractor_skips_numeric_cells_under_blank_column_headers() -> None:
+    document = _document_with_table(
+        [
+            ["Category", "", "2025"],
+            ["Revenue", "100", "250"],
+        ]
+    )
+
+    fact_table = FactTableExtractor().extract(document)
+
+    assert len(fact_table.entries) == 1
+    assert fact_table.entries[0].column_label == "2025"
+    assert fact_table.entries[0].numeric_value == 250.0

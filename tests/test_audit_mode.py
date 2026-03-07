@@ -93,3 +93,36 @@ def test_audit_mode_returns_unverifiable_when_query_result_is_not_verified() -> 
     assert audit.status == "unverifiable"
     assert audit.findings == ()
     assert audit.failure_reason == "Query result is not verified and cannot be audited"
+
+
+def test_verify_claim_returns_verified_with_supporting_citations() -> None:
+    result = _verified_result(
+        answer="Revenue improved by 250 in 2024.",
+        snippets=[
+            "Revenue improved by 250 in 2024.",
+            "Operating costs remained stable.",
+        ],
+    )
+
+    verification = AuditMode().verify_claim("Revenue improved by 250 in 2024.", result)
+
+    assert verification.status == "verified"
+    assert verification.failure_reason is None
+    assert verification.provenance_chain is not None
+    assert len(verification.provenance_chain.entries) == 1
+    assert verification.provenance_chain.entries[0].snippet == "Revenue improved by 250 in 2024."
+
+
+def test_verify_claim_returns_unverifiable_when_claim_is_not_supported() -> None:
+    result = _verified_result(
+        answer="Revenue improved by 250 in 2024.",
+        snippets=[
+            "Revenue improved by 250 in 2024.",
+        ],
+    )
+
+    verification = AuditMode().verify_claim("Revenue was 4200 in Q3.", result)
+
+    assert verification.status == "unverifiable"
+    assert verification.provenance_chain is None
+    assert verification.failure_reason == "Claim not found in retrieved evidence"

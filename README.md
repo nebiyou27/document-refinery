@@ -188,6 +188,27 @@ Strategy B:  1 pages  $0.00
 Strategy C:  1 pages  ~$0.003
 ```
 
+### Run Phase 4 on a single document
+
+```bash
+venv\Scripts\python.exe scripts/run_phase4.py data/2013-E.C-Assigned-regular-budget-and-expense.pdf --save-artifacts
+```
+
+Optional query and claim verification:
+
+```bash
+venv\Scripts\python.exe scripts/run_phase4.py data/2013-E.C-Assigned-regular-budget-and-expense.pdf \
+  --topic "budget totals" \
+  --claim "The report states revenue was $4.2B in Q3" \
+  --save-artifacts
+```
+
+Phase 4 emits:
+- retrieval-backed answers with `ProvenanceChain`
+- Audit Mode results for generated answers
+- direct claim verification results: either citation-backed `verified` or `unverifiable`
+- `fact_table.json` with numeric facts and provenance for table-heavy documents
+
 ### Run tests
 
 ```bash
@@ -303,7 +324,32 @@ within a free tier of 1,500 calls/day.
 | **Phase 1** | Triage Agent — document classifier |
 | **Phase 2** | Multi-strategy extraction + escalation router |
 | **Phase 3** | Semantic chunking engine + PageIndex builder |
-| **Phase 4** | Query agent + provenance layer + audit mode |
+| **Phase 4** | Query agent + provenance layer + audit mode + fact table |
+
+---
+
+## Phase 4 Behavior
+
+The integrated Phase 4 entrypoint is `scripts/run_phase4.py`.
+
+It runs:
+- chunking and PageIndex summarization
+- vector retrieval and query answering
+- provenance assembly
+- Audit Mode
+- FactTable extraction for numeric tables
+
+Audit Mode supports two checks:
+- Answer audit: verifies that a generated answer is grounded in retrieved provenance snippets
+- Claim verification: given a claim such as `The report states revenue was $4.2B in Q3`, the system must either return `verified` with source citations or `unverifiable`
+
+When `--save-artifacts` is enabled, the output directory includes:
+- `extracted_document.json`
+- `ldus.json`
+- `chunks.json`
+- `page_index.json`
+- `fact_table.json`
+- `phase4_report.json`
 
 ---
 

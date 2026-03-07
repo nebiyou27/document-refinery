@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from dataclasses import asdict
 import hashlib
 import json
 import re
@@ -84,6 +85,13 @@ def parse_args() -> argparse.Namespace:
         dest="topics",
         default=[],
         help="Query topic to run through Phase 4. Repeat up to 3 times.",
+    )
+    parser.add_argument(
+        "--claim",
+        action="append",
+        dest="claims",
+        default=[],
+        help="Claim to verify against the document. Repeat up to 3 times.",
     )
     parser.add_argument(
         "--persist-dir",
@@ -174,7 +182,7 @@ def save_artifacts(*, output_dir: Path, pipeline_result) -> None:
                 "route": run.query_result.route,
                 "answer": run.query_result.answer,
                 "failure_reason": run.query_result.failure_reason,
-                "audit": run.audit_result.__dict__,
+                "audit": asdict(run.audit_result),
                 "provenance_chain": (
                     run.query_result.provenance_chain.model_dump(mode="json")
                     if run.query_result.provenance_chain
@@ -182,6 +190,21 @@ def save_artifacts(*, output_dir: Path, pipeline_result) -> None:
                 ),
             }
             for run in pipeline_result.query_runs
+        ],
+        "claim_verifications": [
+            {
+                "claim": verification.claim,
+                "status": verification.status,
+                "support_ratio": verification.support_ratio,
+                "supporting_record_ids": list(verification.supporting_record_ids),
+                "failure_reason": verification.failure_reason,
+                "provenance_chain": (
+                    verification.provenance_chain.model_dump(mode="json")
+                    if verification.provenance_chain
+                    else None
+                ),
+            }
+            for verification in pipeline_result.claim_verifications
         ],
     }
     (output_dir / "phase4_report.json").write_text(
@@ -221,13 +244,19 @@ def main() -> int:
         if args.topics:
             topics = args.topics[:3]
         else:
-            bootstrap_result = phase4.run(extracted=extracted, queries=[], top_k=args.top_k)
+            bootstrap_result = phase4.run(extracted=extracted, queries=[], claims=[], top_k=args.top_k)
             topics = derive_topics(bootstrap_result.tree, [])
 
-        pipeline_result = phase4.run(extracted=extracted, queries=topics, top_k=args.top_k)
+        pipeline_result = phase4.run(
+            extracted=extracted,
+            queries=topics,
+            claims=args.claims[:3],
+            top_k=args.top_k,
+        )
 
         verified_queries = sum(1 for run in pipeline_result.query_runs if run.query_result.status == "verified")
         passed_audits = sum(1 for run in pipeline_result.query_runs if run.audit_result.status == "passed")
+        verified_claims = sum(1 for verification in pipeline_result.claim_verifications if verification.status == "verified")
 
         print(f"status=ok doc_id={extracted.doc_id}")
         print(f"file={pdf_path}")
@@ -238,6 +267,8 @@ def main() -> int:
         print(f"queries={len(pipeline_result.query_runs)}")
         print(f"queries_verified={verified_queries}")
         print(f"audits_passed={passed_audits}")
+        print(f"claims={len(pipeline_result.claim_verifications)}")
+        print(f"claims_verified={verified_claims}")
         print(f"collection=phase4_{extracted.doc_id}")
 
         if args.save_artifacts:

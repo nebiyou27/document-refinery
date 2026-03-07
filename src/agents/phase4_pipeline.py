@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.agents.audit_mode import AuditMode, AuditResult
+from src.agents.audit_mode import AuditMode, AuditResult, ClaimVerificationResult
 from src.agents.fact_table_extractor import FactTableExtractor
 from src.agents.query_agent import QueryAgent, QueryAgentResult
 from src.chunking.engine import ChunkingEngine
@@ -33,6 +33,7 @@ class Phase4PipelineResult:
     tree: PageIndexTree
     fact_table: FactTable
     query_runs: tuple[Phase4QueryRun, ...]
+    claim_verifications: tuple[ClaimVerificationResult, ...]
 
 
 class Phase4Pipeline:
@@ -67,6 +68,7 @@ class Phase4Pipeline:
         *,
         extracted: ExtractedDocument,
         queries: list[str],
+        claims: list[str] | None = None,
         top_k: int = 3,
         section_top_k: int = 3,
     ) -> Phase4PipelineResult:
@@ -94,6 +96,17 @@ class Phase4Pipeline:
             )
         query_runs = tuple(query_runs_list)
 
+        claim_verifications_list: list[ClaimVerificationResult] = []
+        for claim in claims or []:
+            claim_query_result = self.query_agent.answer(
+                tree=summarized_tree,
+                query=claim,
+                top_k=top_k,
+                section_top_k=section_top_k,
+            )
+            claim_verifications_list.append(self.audit_mode.verify_claim(claim, claim_query_result))
+        claim_verifications = tuple(claim_verifications_list)
+
         fact_table = self.fact_table_extractor.extract(extracted)
         return Phase4PipelineResult(
             extracted=extracted,
@@ -102,4 +115,5 @@ class Phase4Pipeline:
             tree=summarized_tree,
             fact_table=fact_table,
             query_runs=query_runs,
+            claim_verifications=claim_verifications,
         )
