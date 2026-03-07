@@ -293,7 +293,7 @@ def main() -> int:
 
         engine = ChunkingEngine(config=ChunkingConfig())
         ldus = engine.build_ldus(extracted)
-        chunks = engine.build_chunks(extracted)
+        chunks = engine.build_chunks(extracted, ldus=ldus)
 
         tree = PageIndexBuilder().build(doc_id=extracted.doc_id, ldus=ldus)
         summary_backend = build_summary_backend(args)

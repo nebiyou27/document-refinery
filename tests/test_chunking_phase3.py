@@ -924,6 +924,82 @@ def test_relaxed_section_path_inference_accepts_heading_followed_by_table() -> N
     assert relaxed_ldus[1].section_path == ("Revenue by Segment",)
 
 
+def test_relaxed_section_path_inference_accepts_heading_followed_by_list_item_from_recovered_text() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 100, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="Procurement Requirements",
+                bbox=(0.0, 0.0, 100.0, 200.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="- 1. Bid security shall be submitted with the offer.",
+                bbox=(0.0, 0.0, 100.0, 200.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    strict_ldus = ChunkingEngine().build_ldus(_document_from_pages(page))
+    relaxed_ldus = ChunkingEngine(
+        section_inferer=SectionPathInferer(mode=SectionInferenceMode.relaxed)
+    ).build_ldus(_document_from_pages(page))
+
+    assert strict_ldus[0].section_path == ()
+    assert strict_ldus[1].section_path == ()
+    assert relaxed_ldus[0].section_path == ("Procurement Requirements",)
+    assert relaxed_ldus[1].section_path == ("Procurement Requirements",)
+
+
+def test_relaxed_section_path_inference_suppresses_strategy_c_boilerplate_lines() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        metadata=_metadata(),
+        signals={"char_count": 100, "char_density": 0.1, "image_area_ratio": 0.0, "table_count": 0},
+        text_blocks=[
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text=(
+                    "The text extracted from this image does not conform to the provided schema "
+                    "and is not suitable for plain text output."
+                ),
+                bbox=(0.0, 0.0, 100.0, 200.0),
+                reading_order=0,
+                content_hash="t1",
+            ),
+            TextBlock(
+                doc_id="doc123",
+                page_number=1,
+                text="- 1. Bid security shall be submitted with the offer.",
+                bbox=(0.0, 0.0, 100.0, 200.0),
+                reading_order=1,
+                content_hash="t2",
+            ),
+        ],
+        page_content_hash="page1",
+    )
+
+    relaxed_ldus = ChunkingEngine(
+        section_inferer=SectionPathInferer(mode=SectionInferenceMode.relaxed)
+    ).build_ldus(_document_from_pages(page))
+
+    assert relaxed_ldus[0].section_path == ()
+    assert relaxed_ldus[1].section_path == ()
+
+
 def test_section_boundary_changes_across_pages_affect_paths_hashes_and_chunks() -> None:
     first_page = ExtractedPage(
         doc_id="doc123",
@@ -1089,6 +1165,164 @@ def test_page_index_builder_attaches_ldus_to_leaf_and_aggregates_page_ranges() -
     assert discussion.end_page == 3
     assert root.start_page == 1
     assert root.end_page == 3
+
+
+def test_table_root_only_recovery_assigns_synthetic_section_paths_and_logs(caplog) -> None:
+    page1 = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        text="",
+        metadata=_metadata(),
+        signals={},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 0.0, 100.0, 120.0),
+                content_hash="t1",
+                table_index=0,
+                rows=[
+                    ["Code", "Budget", "Expense"],
+                    ["A1", "100", "90"],
+                ],
+            )
+        ],
+        page_content_hash="page-1",
+    )
+    page2 = ExtractedPage(
+        doc_id="doc123",
+        page_number=2,
+        text="",
+        metadata=_metadata(),
+        signals={},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=2,
+                bbox=(0.0, 0.0, 100.0, 130.0),
+                content_hash="t2",
+                table_index=0,
+                rows=[
+                    ["Vendor", "Amount", "Date"],
+                    ["ACME", "200", "2024-01-01"],
+                ],
+            )
+        ],
+        page_content_hash="page-2",
+    )
+
+    document = _document_from_pages(page1, page2)
+    engine = ChunkingEngine(section_inferer=SectionPathInferer())
+
+    with caplog.at_level("INFO"):
+        ldus = engine.build_ldus(document)
+
+    table_ldus = [ldu for ldu in ldus if ldu.kind == LDUKind.table]
+    assert [ldu.section_path for ldu in table_ldus] == [
+        ("Page 1 Table 1: Budget / Expense",),
+        ("Page 2 Table 1: Vendor / Amount",),
+    ]
+
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    non_root_nodes = [node for node in tree.nodes if node.section_path]
+
+    assert [node.section_path for node in non_root_nodes] == [
+        ("Page 1 Table 1: Budget / Expense",),
+        ("Page 2 Table 1: Vendor / Amount",),
+    ]
+    assert "Triggered synthetic table section recovery" in caplog.text
+
+
+def test_table_root_only_recovery_uses_grounded_keyword_fallback_for_noisy_headers() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        text="",
+        metadata=_metadata(),
+        signals={},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 80.0, 180.0, 180.0),
+                content_hash="table-1",
+                table_index=0,
+                rows=[
+                    ["001", "2013", "900"],
+                    ["Budget", "Expense", "Total"],
+                ],
+            ),
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 220.0, 180.0, 320.0),
+                content_hash="table-2",
+                table_index=1,
+                rows=[
+                    ["Expense", "Amount", "Total"],
+                    ["Travel", "40", "40"],
+                ],
+            ),
+        ],
+        page_content_hash="page-1",
+    )
+
+    ldus = ChunkingEngine(section_inferer=SectionPathInferer()).build_ldus(_document_from_pages(page))
+    table_ldus = [ldu for ldu in ldus if ldu.kind == LDUKind.table]
+
+    assert table_ldus[0].section_path == ("Page 1 Table 1: Budget / Expense",)
+    assert table_ldus[1].section_path == ("Page 1 Table 2: Expense / Amount",)
+
+
+def test_table_root_only_recovery_drops_low_quality_descriptor_when_no_grounded_signal_exists() -> None:
+    page = ExtractedPage(
+        doc_id="doc123",
+        page_number=1,
+        text="",
+        metadata=_metadata(),
+        signals={},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=1,
+                bbox=(0.0, 80.0, 180.0, 180.0),
+                content_hash="table-1",
+                table_index=0,
+                rows=[
+                    ["6C", "001", "2013"],
+                    ["A1", "100", "90"],
+                ],
+            ),
+        ],
+        page_content_hash="page-1",
+    )
+    page2 = ExtractedPage(
+        doc_id="doc123",
+        page_number=2,
+        text="",
+        metadata=_metadata(),
+        signals={},
+        table_blocks=[
+            TableBlock(
+                doc_id="doc123",
+                page_number=2,
+                bbox=(0.0, 80.0, 180.0, 180.0),
+                content_hash="table-3",
+                table_index=0,
+                rows=[
+                    ["7D", "002", "2014"],
+                    ["A3", "120", "100"],
+                ],
+            )
+        ],
+        page_content_hash="page-2",
+    )
+
+    ldus = ChunkingEngine(section_inferer=SectionPathInferer()).build_ldus(_document_from_pages(page, page2))
+    table_ldus = [ldu for ldu in ldus if ldu.kind == LDUKind.table]
+
+    assert table_ldus[0].section_path == ("Page 1 Table 1",)
+    assert table_ldus[-1].section_path == ("Page 2 Table 1",)
 
 
 def test_page_index_summarization_integrates_with_tree() -> None:

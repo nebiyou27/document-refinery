@@ -85,15 +85,20 @@ class DocumentEvalResult:
     file_path: str
     doc_id: str | None
     document_class: str | None
+    extraction_quality: str
     retrieval_query_derivation_expected: bool
     section_inference_mode: str | None
     success: bool
     failure_reason: str | None
     page_count: int
+    timed_out_page_count: int
+    surviving_content_page_count: int
     ldu_count: int
     chunk_count: int
     pageindex_node_count: int
+    non_root_pageindex_node_count: int
     summaries_generated: bool
+    query_derivation_blocker: str | None
     vector_ingestion_succeeded: bool
     retrieval_evaluation_attempted: bool
     retrieval_evaluation_succeeded: bool
@@ -255,10 +260,79 @@ def summarize_tree_stats(tree: PageIndexTree) -> dict[str, Any]:
     }
 
 
+def _contains_timeout(error_message: str | None) -> bool:
+    if not error_message:
+        return False
+    normalized = error_message.lower()
+    return "timed out" in normalized or "timeout=" in normalized
+
+
+def _has_substantive_page_content(page: Any) -> bool:
+    if getattr(page, "text_blocks", None):
+        return True
+    if getattr(page, "table_blocks", None):
+        return True
+    if getattr(page, "figure_blocks", None):
+        return True
+    if getattr(page, "tables", None):
+        return True
+    return bool(canonicalize_text(getattr(page, "text", "")))
+
+
+def _count_surviving_blocks(extracted: ExtractedDocument) -> int:
+    total = 0
+    for page in extracted.pages:
+        page_total = 0
+        page_total += len(getattr(page, "text_blocks", []))
+        page_total += len(getattr(page, "table_blocks", []))
+        page_total += len(getattr(page, "figure_blocks", []))
+        if page_total == 0 and getattr(page, "tables", None):
+            page_total += len(page.tables)
+        if page_total == 0 and canonicalize_text(getattr(page, "text", "")):
+            page_total = 1
+        total += page_total
+    return total
+
+
+def assess_extraction_quality(
+    extracted: ExtractedDocument,
+    tree: PageIndexTree | None = None,
+) -> dict[str, Any]:
+    timed_out_page_count = sum(1 for page in extracted.pages if _contains_timeout(page.error_message))
+    surviving_content_page_count = sum(1 for page in extracted.pages if _has_substantive_page_content(page))
+    surviving_block_count = _count_surviving_blocks(extracted)
+    non_root_pageindex_node_count = 0
+    if tree is not None:
+        non_root_pageindex_node_count = sum(1 for node in tree.nodes if node.section_path)
+
+    extraction_quality = "successful"
+    blockers: list[str] = []
+
+    if tree is not None and non_root_pageindex_node_count == 0:
+        blockers.append("root_only_pageindex")
+    if surviving_block_count <= 1:
+        blockers.append("single_minimal_surviving_block")
+    if timed_out_page_count > 0 and surviving_content_page_count <= 1:
+        blockers.append("timeouts_left_minimal_surviving_content")
+
+    if blockers:
+        extraction_quality = "partial_minimal"
+
+    return {
+        "extraction_quality": extraction_quality,
+        "timed_out_page_count": timed_out_page_count,
+        "surviving_content_page_count": surviving_content_page_count,
+        "non_root_pageindex_node_count": non_root_pageindex_node_count,
+        "query_derivation_blocker": "; ".join(blockers) if blockers else None,
+    }
+
+
 def build_retrieval_queries(tree: PageIndexTree, chunks: list[Chunk], limit: int = 3) -> list[LabeledRetrievalQuery]:
     chunk_ids_by_section: dict[tuple[str, ...], list[str]] = {}
+    chunk_texts_by_section: dict[tuple[str, ...], list[str]] = {}
     for chunk in chunks:
         chunk_ids_by_section.setdefault(chunk.section_path, []).append(chunk.chunk_id or "")
+        chunk_texts_by_section.setdefault(chunk.section_path, []).append(getattr(chunk, "text", ""))
 
     queries: list[LabeledRetrievalQuery] = []
     seen_topics: set[str] = set()
@@ -274,7 +348,13 @@ def build_retrieval_queries(tree: PageIndexTree, chunks: list[Chunk], limit: int
         )
         if not relevant_ids:
             continue
-        topic = build_query_topic(node)
+        relevant_chunk_texts = [
+            text
+            for section_path, texts in chunk_texts_by_section.items()
+            if section_path[: len(node.section_path)] == node.section_path
+            for text in texts
+        ]
+        topic = build_query_topic(node, chunk_texts=relevant_chunk_texts)
         if not topic or topic in seen_topics:
             continue
         seen_topics.add(topic)
@@ -290,13 +370,148 @@ def build_retrieval_queries(tree: PageIndexTree, chunks: list[Chunk], limit: int
     return queries
 
 
-def build_query_topic(node: PageIndexNode) -> str:
+def build_query_topic(node: PageIndexNode, chunk_texts: list[str] | None = None) -> str:
+    synthetic_table_match = re.match(r"^Page\s+\d+\s+Table\s+\d+(?::\s+(?P<label>.+))?$", node.title)
+    if synthetic_table_match is not None:
+        label = canonicalize_text(synthetic_table_match.group("label") or "")
+        if _is_high_quality_synthetic_query_label(label):
+            return label
+        derived = _synthetic_table_query_topic_from_texts(chunk_texts or [])
+        if derived:
+            return derived
     if node.summary:
         summary = canonicalize_text(node.summary)
         if summary:
             return summary
     title = re.sub(r"^\d+(?:\.\d+)*\s*", "", node.title).strip()
     return canonicalize_text(title)
+
+
+def _is_high_quality_synthetic_query_label(label: str) -> bool:
+    normalized = canonicalize_text(label)
+    if not normalized:
+        return False
+    if "..." in normalized:
+        return False
+    alpha_tokens = re.findall(r"[A-Za-z][A-Za-z0-9&/-]{2,}", normalized)
+    if len(alpha_tokens) >= 2:
+        return True
+    grounded_keywords = (
+        "budget",
+        "expense",
+        "expenses",
+        "allocation",
+        "amount",
+        "amounts",
+        "total",
+        "totals",
+        "category",
+        "item",
+        "procurement",
+        "audit",
+        "finding",
+        "target",
+        "actual",
+        "revenue",
+        "cost",
+        "vendor",
+        "payment",
+    )
+    lowered = normalized.casefold()
+    return any(re.search(rf"\b{re.escape(keyword)}\b", lowered) for keyword in grounded_keywords)
+
+
+def _synthetic_table_query_topic_from_texts(texts: list[str]) -> str:
+    joined = canonicalize_text("\n".join(texts))
+    if not joined:
+        return ""
+    labels = _meaningful_table_query_labels(joined)
+    if labels:
+        return " / ".join(labels[:2])
+    keywords = _grounded_table_query_keywords(joined)
+    if keywords:
+        return " / ".join(keyword.title() for keyword in keywords[:2])
+    if _looks_like_numeric_table(joined):
+        return "Amounts / Totals"
+    return ""
+
+
+def _meaningful_table_query_labels(text: str) -> list[str]:
+    for line in text.splitlines():
+        normalized = canonicalize_text(line)
+        if not normalized:
+            continue
+        labels: list[str] = []
+        seen: set[str] = set()
+        for cell in normalized.split("|"):
+            tokens = [_normalize_query_token(token) for token in re.findall(r"[A-Za-z][A-Za-z0-9&/-]{1,}", cell)]
+            tokens = [token for token in tokens if token]
+            grounded_tokens = [token for token in tokens if _is_high_quality_synthetic_query_label(token)]
+            token_group = " ".join(grounded_tokens[:3]).strip()
+            if not _is_high_quality_synthetic_query_label(token_group):
+                continue
+            lowered = token_group.casefold()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            labels.append(token_group)
+        if labels:
+            return labels
+    return []
+
+
+def _grounded_table_query_keywords(text: str) -> list[str]:
+    grounded_keywords = (
+        "budget",
+        "expense",
+        "expenses",
+        "allocation",
+        "allocations",
+        "amount",
+        "amounts",
+        "total",
+        "totals",
+        "category",
+        "categories",
+        "item",
+        "items",
+        "procurement",
+        "audit",
+        "finding",
+        "findings",
+        "target",
+        "actual",
+        "revenue",
+        "cost",
+        "vendor",
+        "payment",
+        "payments",
+        "usd",
+    )
+    lowered = text.casefold()
+    keywords = [
+        keyword
+        for keyword in grounded_keywords
+        if re.search(rf"\b{re.escape(keyword)}\b", lowered)
+    ]
+    if _looks_like_numeric_table(text) and any(keyword in keywords for keyword in ("target", "budget", "expense", "revenue", "cost", "vendor", "usd")):
+        if "amounts" not in keywords:
+            keywords.append("amounts")
+    return keywords
+
+
+def _normalize_query_token(token: str) -> str:
+    cleaned = token.strip(" .,:;|/\\()[]{}+-_")
+    if len(cleaned) < 2:
+        return ""
+    if sum(char.isalpha() for char in cleaned) < 2:
+        return ""
+    return cleaned
+
+
+def _looks_like_numeric_table(text: str) -> bool:
+    numeric_values = re.findall(r"\b\d[\d,]*(?:\.\d+)?\b", text)
+    return len(numeric_values) >= 4
 
 
 def load_document_profile(doc_id: str | None) -> DocumentProfile | None:
@@ -340,15 +555,20 @@ def process_document(
         file_path=str(pdf_path),
         doc_id=None,
         document_class=None,
+        extraction_quality="failed",
         retrieval_query_derivation_expected=False,
         section_inference_mode=None,
         success=False,
         failure_reason=None,
         page_count=0,
+        timed_out_page_count=0,
+        surviving_content_page_count=0,
         ldu_count=0,
         chunk_count=0,
         pageindex_node_count=0,
+        non_root_pageindex_node_count=0,
         summaries_generated=False,
+        query_derivation_blocker=None,
         vector_ingestion_succeeded=False,
         retrieval_evaluation_attempted=False,
         retrieval_evaluation_succeeded=False,
@@ -372,6 +592,12 @@ def process_document(
         if extracted.status == "error":
             raise RuntimeError(extracted.error_message or "extraction failed")
 
+        extraction_stats = assess_extraction_quality(extracted)
+        result.extraction_quality = extraction_stats["extraction_quality"]
+        result.timed_out_page_count = extraction_stats["timed_out_page_count"]
+        result.surviving_content_page_count = extraction_stats["surviving_content_page_count"]
+        result.query_derivation_blocker = extraction_stats["query_derivation_blocker"]
+
         profile = load_document_profile(extracted.doc_id)
         document_policy = resolve_document_class(
             file_name=pdf_path.name,
@@ -389,13 +615,19 @@ def process_document(
             ),
         )
         ldus = engine.build_ldus(extracted)
-        chunks = engine.build_chunks(extracted)
+        chunks = engine.build_chunks(extracted, ldus=ldus)
         result.ldu_count = len(ldus)
         result.chunk_count = len(chunks)
 
         tree = PageIndexBuilder().build(doc_id=extracted.doc_id, ldus=ldus)
         summarized_tree = PageIndexSummarizer(summary_backend).summarize_tree(tree=tree, ldus=ldus)
         result.pageindex_node_count = len(summarized_tree.nodes)
+        extraction_stats = assess_extraction_quality(extracted, summarized_tree)
+        result.extraction_quality = extraction_stats["extraction_quality"]
+        result.timed_out_page_count = extraction_stats["timed_out_page_count"]
+        result.surviving_content_page_count = extraction_stats["surviving_content_page_count"]
+        result.non_root_pageindex_node_count = extraction_stats["non_root_pageindex_node_count"]
+        result.query_derivation_blocker = extraction_stats["query_derivation_blocker"]
         result.summaries_generated = any(
             bool((node.summary or "").strip()) for node in summarized_tree.nodes if node.section_path
         )
@@ -417,6 +649,11 @@ def process_document(
         query_payload: dict[str, Any] = {
             "collection_name": collection_name,
             "document_class": result.document_class,
+            "extraction_quality": result.extraction_quality,
+            "timed_out_page_count": result.timed_out_page_count,
+            "surviving_content_page_count": result.surviving_content_page_count,
+            "non_root_pageindex_node_count": result.non_root_pageindex_node_count,
+            "query_derivation_blocker": result.query_derivation_blocker,
             "retrieval_query_derivation_expected": result.retrieval_query_derivation_expected,
             "section_inference_mode": result.section_inference_mode,
             "queries": [asdict(query) for query in queries],
@@ -485,6 +722,7 @@ def process_document(
         )
         return result
     except Exception as exc:
+        result.extraction_quality = "failed"
         result.failure_reason = str(exc)
         save_json(
             doc_folder / "document_report.json",
@@ -512,6 +750,7 @@ def write_summary_reports(output_dir: Path, results: list[DocumentEvalResult]) -
 
 def print_run_summary(results: list[DocumentEvalResult]) -> None:
     successes = sum(1 for result in results if result.success)
+    quality_counter = Counter(result.extraction_quality for result in results)
     retrieval_skips = sum(1 for result in results if result.retrieval_evaluation_skipped)
     retrieval_failures = sum(1 for result in results if result.retrieval_evaluation_failed)
     failures = len(results) - successes
@@ -523,6 +762,9 @@ def print_run_summary(results: list[DocumentEvalResult]) -> None:
     print("\nBatch summary")
     print(f"successes={successes}")
     print(f"failures={failures}")
+    print(f"extraction_quality_successful={quality_counter.get('successful', 0)}")
+    print(f"extraction_quality_partial_minimal={quality_counter.get('partial_minimal', 0)}")
+    print(f"extraction_quality_failed={quality_counter.get('failed', 0)}")
     print(f"retrieval_evaluation_skips={retrieval_skips}")
     print(f"retrieval_evaluation_failures={retrieval_failures}")
     if common_failures:
@@ -573,15 +815,20 @@ def main() -> int:
                 file_path="",
                 doc_id=None,
                 document_class=None,
+                extraction_quality="failed",
                 retrieval_query_derivation_expected=False,
                 section_inference_mode=None,
                 success=False,
                 failure_reason=reason,
                 page_count=0,
+                timed_out_page_count=0,
+                surviving_content_page_count=0,
                 ldu_count=0,
                 chunk_count=0,
                 pageindex_node_count=0,
+                non_root_pageindex_node_count=0,
                 summaries_generated=False,
+                query_derivation_blocker=None,
                 vector_ingestion_succeeded=False,
                 retrieval_evaluation_attempted=False,
                 retrieval_evaluation_succeeded=False,

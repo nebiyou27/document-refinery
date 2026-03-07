@@ -6,6 +6,7 @@ import base64
 import hashlib
 import json
 import math
+import re
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -20,9 +21,10 @@ from src.models.extracted_document import (
     TableBlock,
     TextBlock,
 )
-from src.utils.hashing import content_hash
+from src.utils.hashing import canonicalize_text, content_hash
 
 _EASYOCR_READER: Any | None = None
+_DEFAULT_VLM_TIMEOUT_SECONDS = 45.0
 
 
 def _compute_doc_id(pdf_path: Path) -> str:
@@ -92,6 +94,12 @@ def _strategy_c_cfg(rules: dict) -> dict[str, Any]:
         rules,
         ("strategy_routing", "strategy_c", "budget_guard", "cost_per_page_estimate_usd"),
     )
+    timeout_per_page = (
+        rules.get("strategy_routing", {})
+        .get("strategy_c", {})
+        .get("budget_guard", {})
+        .get("timeout_per_page_seconds", _DEFAULT_VLM_TIMEOUT_SECONDS)
+    )
     return {
         "vlm_model": str(model),
         "ocr_min_chars_per_page": int(ocr_min_chars),
@@ -99,6 +107,7 @@ def _strategy_c_cfg(rules: dict) -> dict[str, Any]:
         "max_pages_per_document": int(max_pages),
         "max_vlm_pages_per_document": int(max_vlm_pages),
         "max_total_runtime_seconds": float(max_runtime),
+        "timeout_per_page_seconds": max(1.0, _safe_float(timeout_per_page, _DEFAULT_VLM_TIMEOUT_SECONDS)),
         "cost_per_page_estimate_usd": float(cost_per_page),
         "failure_policy_ocr_unavailable": ocr_unavailable_policy,
         "failure_policy_ocr_failure": ocr_failure_policy,
@@ -199,6 +208,7 @@ def _vlm_extract(
     *,
     image_path: Path,
     model: str,
+    timeout_seconds: float,
 ) -> str:
     try:
         import requests
@@ -229,7 +239,7 @@ def _vlm_extract(
     resp = requests.post(
         "http://localhost:11434/api/chat",
         json=payload,
-        timeout=120,
+        timeout=timeout_seconds,
     )
     resp.raise_for_status()
     body = resp.json()
@@ -247,19 +257,92 @@ def _strip_code_fences(raw: str) -> str:
     return text
 
 
+def _extract_embedded_json_object(raw_text: str) -> str | None:
+    start = raw_text.find("{")
+    while start != -1:
+        depth = 0
+        in_string = False
+        escape = False
+        for index in range(start, len(raw_text)):
+            char = raw_text[index]
+            if in_string:
+                if escape:
+                    escape = False
+                elif char == "\\":
+                    escape = True
+                elif char == '"':
+                    in_string = False
+                continue
+            if char == '"':
+                in_string = True
+                continue
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return raw_text[start : index + 1]
+        start = raw_text.find("{", start + 1)
+    return None
+
+
+def _strip_meta_prefix(text: str) -> str:
+    cleaned = str(text or "").strip()
+    if not cleaned:
+        return ""
+    cleaned = re.sub(
+        (
+            r"^\s*(?:the\s+following\s+json\s+is\s+produced(?:\s+by\s+following\s+the\s+provided\s+rules)?|"
+            r"the\s+extracted\s+(?:content|json)\s+(?:follows\s+the\s+specified\s+json\s+schema|is\s+as\s+follows)|"
+            r"the\s+plain[_\s]?text\s+from\s+the\s+image\s+appears\s+as\s+follows)\s*:?\s*"
+        ),
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return cleaned.strip()
+
+
+def _normalize_vlm_text(value: str) -> str:
+    cleaned = _strip_meta_prefix(_strip_code_fences(str(value or "")))
+    return cleaned.strip()
+
+
+def _normalize_vlm_bullets(bullets: list[Any]) -> list[str]:
+    normalized: list[str] = []
+    for item in bullets:
+        text = _normalize_vlm_text(str(item or ""))
+        if not text:
+            continue
+        normalized.append(text)
+    return normalized
+
+
+def _coerce_vlm_payload(raw_text: str) -> dict[str, Any] | None:
+    candidate = _strip_code_fences(raw_text)
+    payload_candidates = [candidate]
+    embedded = _extract_embedded_json_object(candidate)
+    if embedded and embedded != candidate:
+        payload_candidates.append(embedded)
+    for payload_text in payload_candidates:
+        try:
+            payload = json.loads(payload_text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
 def _parse_vlm_json(raw_text: str) -> dict[str, Any]:
     fallback = {
-        "plain_text": raw_text.strip(),
+        "plain_text": _normalize_vlm_text(raw_text),
         "bullets": [],
         "tables": [],
         "figures": [],
     }
-    candidate = _strip_code_fences(raw_text)
-    try:
-        payload = json.loads(candidate)
-    except json.JSONDecodeError:
-        return fallback
-    if not isinstance(payload, dict):
+    payload = _coerce_vlm_payload(raw_text)
+    if payload is None:
         return fallback
 
     plain_text = payload.get("plain_text", "")
@@ -267,8 +350,8 @@ def _parse_vlm_json(raw_text: str) -> dict[str, Any]:
     tables = payload.get("tables", [])
     figures = payload.get("figures", [])
 
-    norm_plain_text = str(plain_text or "").strip()
-    norm_bullets = [str(item).strip() for item in bullets if str(item or "").strip()] if isinstance(bullets, list) else []
+    norm_plain_text = _normalize_vlm_text(str(plain_text or ""))
+    norm_bullets = _normalize_vlm_bullets(bullets) if isinstance(bullets, list) else []
     norm_tables = tables if isinstance(tables, list) else []
     norm_figures = figures if isinstance(figures, list) else []
     return {
@@ -286,6 +369,38 @@ def _render_structured_text(*, plain_text: str, bullets: list[str]) -> str:
     if bullets:
         parts.extend(f"- {item}" for item in bullets)
     return "\n".join(parts).strip()
+
+
+def _build_vlm_text_blocks(
+    *,
+    doc_id: str,
+    page_number: int,
+    page_width: float,
+    page_height: float,
+    plain_text: str,
+    bullets: list[str],
+    fallback_text: str,
+) -> list[TextBlock]:
+    entries: list[str] = []
+    if plain_text:
+        entries.extend(line.strip() for line in plain_text.splitlines() if canonicalize_text(line))
+    entries.extend(f"- {item}" for item in bullets if canonicalize_text(item))
+    if not entries and fallback_text:
+        entries.append(fallback_text)
+
+    blocks: list[TextBlock] = []
+    for reading_order, entry in enumerate(entries):
+        blocks.append(
+            TextBlock(
+                doc_id=doc_id,
+                page_number=page_number,
+                text=entry,
+                bbox=(0.0, 0.0, page_width, page_height),
+                reading_order=reading_order,
+                content_hash=content_hash(entry),
+            )
+        )
+    return blocks
 
 
 def _figure_caption(figure_payload: Any) -> str | None:
@@ -516,7 +631,11 @@ def extract_pages_with_vision(
 
                     try:
                         vlm_start = time.perf_counter()
-                        vlm_text = _vlm_extract(image_path=image_path, model=cfg["vlm_model"])
+                        vlm_text = _vlm_extract(
+                            image_path=image_path,
+                            model=cfg["vlm_model"],
+                            timeout_seconds=cfg["timeout_per_page_seconds"],
+                        )
                         vlm_wall_time_sec += time.perf_counter() - vlm_start
                         page_vlm_calls += 1
                     except Exception as vlm_exc:
@@ -525,7 +644,9 @@ def extract_pages_with_vision(
                         if cfg["failure_policy_vlm_failure"] == "keep_ocr" and final_text:
                             vlm_text = ""
                         else:
-                            raise RuntimeError(f"vlm_failed: {vlm_exc}") from vlm_exc
+                            raise RuntimeError(
+                                f"vlm_failed(timeout={cfg['timeout_per_page_seconds']}s): {vlm_exc}"
+                            ) from vlm_exc
                     if vlm_text:
                         parsed = _parse_vlm_json(vlm_text)
                         final_text = _render_structured_text(
@@ -534,16 +655,15 @@ def extract_pages_with_vision(
                         )
                         if not final_text:
                             final_text = str(vlm_text or "").strip()
-                        text_blocks = [
-                            TextBlock(
-                                doc_id=doc_id,
-                                page_number=page_number,
-                                text=final_text,
-                                bbox=(0.0, 0.0, page_width, page_height),
-                                reading_order=0,
-                                content_hash=content_hash(final_text),
-                            )
-                        ]
+                        text_blocks = _build_vlm_text_blocks(
+                            doc_id=doc_id,
+                            page_number=page_number,
+                            page_width=page_width,
+                            page_height=page_height,
+                            plain_text=parsed["plain_text"],
+                            bullets=parsed["bullets"],
+                            fallback_text=final_text,
+                        )
                         bbox_precision = "page_level"
                         tables_payload = [row for row in parsed["tables"] if isinstance(row, dict)]
                         table_blocks = [

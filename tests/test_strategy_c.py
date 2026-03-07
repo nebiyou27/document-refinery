@@ -30,6 +30,7 @@ def _rules() -> dict:
                     "max_pages_per_document": 200,
                     "max_vlm_pages_per_document": 40,
                     "max_total_runtime_seconds": 900,
+                    "timeout_per_page_seconds": 45,
                 },
             }
         }
@@ -62,7 +63,11 @@ def test_strategy_c_extract_pages_schema_valid(monkeypatch, tmp_path: Path) -> N
         )
 
     monkeypatch.setattr(strategy_c, "_ocr_extract", _fake_ocr_extract)
-    monkeypatch.setattr(strategy_c, "_vlm_extract", lambda *, image_path, model: "VLM recovered text")
+    monkeypatch.setattr(
+        strategy_c,
+        "_vlm_extract",
+        lambda *, image_path, model, timeout_seconds: "VLM recovered text",
+    )
 
     pages = strategy_c.extract_pages_with_vision(
         pdf_path=pdf_path,
@@ -93,7 +98,7 @@ def test_strategy_c_uses_vlm_only_when_easyocr_unavailable(monkeypatch, tmp_path
     monkeypatch.setattr(
         strategy_c,
         "_vlm_extract",
-        lambda *, image_path, model: "Recovered text from VLM-only fallback",
+        lambda *, image_path, model, timeout_seconds: "Recovered text from VLM-only fallback",
     )
 
     pages = strategy_c.extract_pages_with_vision(
@@ -123,7 +128,7 @@ def test_strategy_c_parses_structured_vlm_json(monkeypatch, tmp_path: Path) -> N
     monkeypatch.setattr(
         strategy_c,
         "_vlm_extract",
-        lambda *, image_path, model: (
+        lambda *, image_path, model, timeout_seconds: (
             '{"plain_text":"Main text","bullets":["one","two"],'
             '"tables":[{"columns":["a"],"rows":[["1"]]}],'
             '"figures":[{"caption":"Chart A"}]}'
@@ -141,10 +146,52 @@ def test_strategy_c_parses_structured_vlm_json(monkeypatch, tmp_path: Path) -> N
     assert page.metadata.bbox_precision == "page_level"
     assert "Main text" in page.text
     assert "- one" in page.text
+    assert [block.text for block in page.text_blocks] == ["Main text", "- one", "- two"]
     assert len(page.tables) == 1
     assert len(page.table_blocks) == 1
     assert page.table_blocks[0].rows == [["a"], ["1"]]
     assert len(page.figure_blocks) == 1
+
+
+def test_strategy_c_parses_embedded_json_and_strips_meta_wrappers(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    pdf_path = tmp_path / "sample.pdf"
+    _make_pdf(pdf_path, pages=1)
+
+    def _fake_ocr_extract(*, image_path: Path, doc_id: str, page_number: int):
+        _ = image_path, doc_id, page_number
+        return ("weak", [], 0.1)
+
+    monkeypatch.setattr(strategy_c, "_ocr_extract", _fake_ocr_extract)
+    monkeypatch.setattr(
+        strategy_c,
+        "_vlm_extract",
+        lambda *, image_path, model, timeout_seconds: (
+            'The following JSON is produced by following the provided rules:\n\n'
+            '{"plain_text":"1.1 Audit Findings\\n1.1.1 Control gaps",'
+            '"bullets":["Missing approvals","Late reconciliations"],'
+            '"tables":[],"figures":[]}'
+        ),
+    )
+
+    pages = strategy_c.extract_pages_with_vision(
+        pdf_path=pdf_path,
+        page_numbers=[1],
+        rules=_rules(),
+    )
+    page = pages[1]
+
+    assert page.status == "ok"
+    assert "The following JSON is produced" not in page.text
+    assert page.text.startswith("1.1 Audit Findings")
+    assert [block.text for block in page.text_blocks] == [
+        "1.1 Audit Findings",
+        "1.1.1 Control gaps",
+        "- Missing approvals",
+        "- Late reconciliations",
+    ]
 
 
 def test_strategy_c_marks_page_error_when_vlm_budget_exceeded(monkeypatch, tmp_path: Path) -> None:
@@ -168,3 +215,92 @@ def test_strategy_c_marks_page_error_when_vlm_budget_exceeded(monkeypatch, tmp_p
     page = pages[1]
     assert page.status == "error"
     assert page.error_message == "budget_exceeded: max_vlm_pages_per_document"
+
+
+def test_strategy_c_uses_timeout_from_config(monkeypatch, tmp_path: Path) -> None:
+    pdf_path = tmp_path / "sample.pdf"
+    _make_pdf(pdf_path, pages=1)
+
+    rules = _rules()
+    rules["strategy_routing"]["strategy_c"]["budget_guard"]["timeout_per_page_seconds"] = 12
+    captured: dict[str, float] = {}
+
+    def _fake_ocr_extract(*, image_path: Path, doc_id: str, page_number: int):
+        _ = image_path, doc_id, page_number
+        return ("weak", [], 0.1)
+
+    def _fake_vlm_extract(*, image_path: Path, model: str, timeout_seconds: float) -> str:
+        _ = image_path, model
+        captured["timeout_seconds"] = timeout_seconds
+        return "Recovered text"
+
+    monkeypatch.setattr(strategy_c, "_ocr_extract", _fake_ocr_extract)
+    monkeypatch.setattr(strategy_c, "_vlm_extract", _fake_vlm_extract)
+
+    pages = strategy_c.extract_pages_with_vision(
+        pdf_path=pdf_path,
+        page_numbers=[1],
+        rules=rules,
+    )
+
+    assert pages[1].status == "ok"
+    assert captured["timeout_seconds"] == 12
+
+
+def test_strategy_c_uses_default_timeout_when_config_missing(monkeypatch, tmp_path: Path) -> None:
+    pdf_path = tmp_path / "sample.pdf"
+    _make_pdf(pdf_path, pages=1)
+
+    rules = _rules()
+    del rules["strategy_routing"]["strategy_c"]["budget_guard"]["timeout_per_page_seconds"]
+    captured: dict[str, float] = {}
+
+    def _fake_ocr_extract(*, image_path: Path, doc_id: str, page_number: int):
+        _ = image_path, doc_id, page_number
+        return ("weak", [], 0.1)
+
+    def _fake_vlm_extract(*, image_path: Path, model: str, timeout_seconds: float) -> str:
+        _ = image_path, model
+        captured["timeout_seconds"] = timeout_seconds
+        return "Recovered text"
+
+    monkeypatch.setattr(strategy_c, "_ocr_extract", _fake_ocr_extract)
+    monkeypatch.setattr(strategy_c, "_vlm_extract", _fake_vlm_extract)
+
+    pages = strategy_c.extract_pages_with_vision(
+        pdf_path=pdf_path,
+        page_numbers=[1],
+        rules=rules,
+    )
+
+    assert pages[1].status == "ok"
+    assert captured["timeout_seconds"] == strategy_c._DEFAULT_VLM_TIMEOUT_SECONDS
+
+
+def test_strategy_c_includes_timeout_in_vlm_failure_message(monkeypatch, tmp_path: Path) -> None:
+    pdf_path = tmp_path / "sample.pdf"
+    _make_pdf(pdf_path, pages=1)
+
+    rules = _rules()
+    rules["strategy_routing"]["strategy_c"]["budget_guard"]["timeout_per_page_seconds"] = 9
+
+    def _fake_ocr_extract(*, image_path: Path, doc_id: str, page_number: int):
+        _ = image_path, doc_id, page_number
+        return ("weak", [], 0.1)
+
+    def _fake_vlm_extract(*, image_path: Path, model: str, timeout_seconds: float) -> str:
+        _ = image_path, model, timeout_seconds
+        raise RuntimeError("Read timed out")
+
+    monkeypatch.setattr(strategy_c, "_ocr_extract", _fake_ocr_extract)
+    monkeypatch.setattr(strategy_c, "_vlm_extract", _fake_vlm_extract)
+
+    pages = strategy_c.extract_pages_with_vision(
+        pdf_path=pdf_path,
+        page_numbers=[1],
+        rules=rules,
+    )
+
+    page = pages[1]
+    assert page.status == "error"
+    assert "vlm_failed(timeout=9.0s): Read timed out" in (page.error_message or "")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import time
 from collections.abc import Iterable
 from pathlib import Path
@@ -67,6 +68,32 @@ def _import_docling():
     from docling.document_converter import DocumentConverter  # type: ignore
 
     return DocumentConverter
+
+
+def _import_docling_pdf_options():
+    from docling.datamodel.accelerator_options import AcceleratorOptions  # type: ignore
+    from docling.datamodel.base_models import InputFormat  # type: ignore
+    from docling.datamodel.pipeline_options import PdfPipelineOptions  # type: ignore
+    from docling.document_converter import PdfFormatOption  # type: ignore
+
+    return AcceleratorOptions, InputFormat, PdfFormatOption, PdfPipelineOptions
+
+
+def _build_docling_converter():
+    DocumentConverter = _import_docling()
+    device = os.getenv("DOC_REFINERY_DOCLING_DEVICE", "").strip().lower()
+    if device != "cuda":
+        return DocumentConverter()
+
+    AcceleratorOptions, InputFormat, PdfFormatOption, PdfPipelineOptions = _import_docling_pdf_options()
+    pipeline_options = PdfPipelineOptions(
+        accelerator_options=AcceleratorOptions(device="cuda")
+    )
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+        }
+    )
 
 
 def _table_rows_from_item(item: Any, doc: Any) -> list[list[str]]:
@@ -344,8 +371,7 @@ def extract_pages_with_docling(
 
     doc_id = _compute_doc_id(pdf_path)
     file_name = pdf_path.name
-    DocumentConverter = _import_docling()
-    converter = DocumentConverter()
+    converter = _build_docling_converter()
     adapter = DoclingDocumentAdapter(doc_id=doc_id, file_name=file_name)
 
     pages_out: dict[int, ExtractedPage] = {}

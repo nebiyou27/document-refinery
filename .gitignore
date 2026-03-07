@@ -34,3 +34,5 @@ build/
 
 # CSV Files (if you have any)
 *.csv
+# Debug runs
+debug_runs/phase3_batch_eval/*

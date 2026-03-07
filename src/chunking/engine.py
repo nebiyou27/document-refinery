@@ -71,8 +71,9 @@ class ChunkingEngine:
 
         return ldus
 
-    def build_chunks(self, document: ExtractedDocument) -> list[Chunk]:
-        ldus = self.build_ldus(document)
+    def build_chunks(self, document: ExtractedDocument, ldus: list[LDU] | None = None) -> list[Chunk]:
+        if ldus is None:
+            ldus = self.build_ldus(document)
         chunks: list[Chunk] = []
         buffer: list[LDU] = []
         sequence_number = 0

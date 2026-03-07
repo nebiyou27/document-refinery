@@ -68,6 +68,66 @@ class _FakeConverter:
         return SimpleNamespace(document=_FakeDocument(), confidence=confidence)
 
 
+def test_build_docling_converter_default_uses_existing_constructor(monkeypatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    class _RecordingConverter:
+        def __init__(self, *args, **kwargs) -> None:
+            calls.append({"args": args, "kwargs": kwargs})
+
+    monkeypatch.delenv("DOC_REFINERY_DOCLING_DEVICE", raising=False)
+    monkeypatch.setattr(strategy_b, "_import_docling", lambda: _RecordingConverter)
+
+    converter = strategy_b._build_docling_converter()
+
+    assert isinstance(converter, _RecordingConverter)
+    assert calls == [{"args": (), "kwargs": {}}]
+
+
+def test_build_docling_converter_cuda_sets_pdf_pipeline_device(monkeypatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    class _RecordingConverter:
+        def __init__(self, *args, **kwargs) -> None:
+            calls.append({"args": args, "kwargs": kwargs})
+
+    class _FakeInputFormat:
+        PDF = "pdf"
+
+    class _FakeAcceleratorOptions:
+        def __init__(self, *, device: str) -> None:
+            self.device = device
+
+    class _FakePdfPipelineOptions:
+        def __init__(self, *, accelerator_options) -> None:
+            self.accelerator_options = accelerator_options
+
+    class _FakePdfFormatOption:
+        def __init__(self, *, pipeline_options) -> None:
+            self.pipeline_options = pipeline_options
+
+    monkeypatch.setenv("DOC_REFINERY_DOCLING_DEVICE", "cuda")
+    monkeypatch.setattr(strategy_b, "_import_docling", lambda: _RecordingConverter)
+    monkeypatch.setattr(
+        strategy_b,
+        "_import_docling_pdf_options",
+        lambda: (
+            _FakeAcceleratorOptions,
+            _FakeInputFormat,
+            _FakePdfFormatOption,
+            _FakePdfPipelineOptions,
+        ),
+    )
+
+    converter = strategy_b._build_docling_converter()
+
+    assert isinstance(converter, _RecordingConverter)
+    assert len(calls) == 1
+    format_options = calls[0]["kwargs"]["format_options"]
+    pdf_option = format_options[_FakeInputFormat.PDF]
+    assert pdf_option.pipeline_options.accelerator_options.device == "cuda"
+
+
 def test_strategy_b_output_validates(monkeypatch, tmp_path: Path) -> None:
     pdf_path = tmp_path / "sample.pdf"
     pdf_path.write_bytes(b"%PDF-FAKE")
