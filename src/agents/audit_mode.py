@@ -9,6 +9,32 @@ from src.agents.query_agent import QueryAgentResult
 from src.models import ProvenanceChain, ProvenanceChainEntry
 from src.utils.hashing import canonicalize_text
 
+STOPWORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "at",
+        "by",
+        "for",
+        "in",
+        "is",
+        "of",
+        "on",
+        "or",
+        "report",
+        "state",
+        "stated",
+        "states",
+        "that",
+        "the",
+        "to",
+        "was",
+        "were",
+        "with",
+    }
+)
+
 
 @dataclass(frozen=True)
 class AuditFinding:
@@ -122,23 +148,41 @@ class AuditMode:
         claim: str,
         entries: tuple[ProvenanceChainEntry, ...],
     ) -> AuditFinding:
-        claim_tokens = self._tokens(claim)
+        claim_text = self._normalize_for_matching(claim)
+        claim_tokens = self._content_tokens(claim_text)
+        claim_numbers = self._numbers(claim_text)
         best_ratio = 0.0
         supporting_record_ids: list[str] = []
+        matched_by_numeric_rule = False
 
         for entry in entries:
-            support_ratio = self._support_ratio(claim_tokens, self._tokens(entry.snippet))
+            snippet_text = self._normalize_for_matching(entry.snippet)
+            snippet_tokens = self._content_tokens(snippet_text)
+            support_ratio = self._support_ratio(claim_tokens, snippet_tokens)
+            numeric_match = self._has_exact_numeric_support(claim_numbers, snippet_text)
+            entity_overlap = self._entity_overlap_ratio(claim_tokens, snippet_tokens)
+            supported = support_ratio >= self.minimum_support_ratio or (
+                numeric_match and entity_overlap >= 0.5
+            )
+            effective_ratio = (
+                max(support_ratio, entity_overlap, self.minimum_support_ratio) if supported else support_ratio
+            )
             if support_ratio <= 0:
-                continue
-            if support_ratio > best_ratio:
-                best_ratio = support_ratio
+                if not supported:
+                    continue
+            if effective_ratio > best_ratio:
+                best_ratio = effective_ratio
                 supporting_record_ids = [entry.record_id]
-            elif support_ratio == best_ratio:
+                matched_by_numeric_rule = supported and support_ratio < self.minimum_support_ratio
+            elif effective_ratio == best_ratio:
                 supporting_record_ids.append(entry.record_id)
+                matched_by_numeric_rule = matched_by_numeric_rule or (
+                    supported and support_ratio < self.minimum_support_ratio
+                )
 
         return AuditFinding(
             claim=claim,
-            supported=best_ratio >= self.minimum_support_ratio,
+            supported=best_ratio >= self.minimum_support_ratio or matched_by_numeric_rule,
             support_ratio=best_ratio,
             supporting_record_ids=tuple(dict.fromkeys(supporting_record_ids)),
         )
@@ -150,11 +194,45 @@ class AuditMode:
         parts = [part.strip() for part in re.split(r"(?<=[.!?])\s+", normalized) if part.strip()]
         return parts or [normalized]
 
+    def _normalize_for_matching(self, text: str) -> str:
+        normalized = canonicalize_text(text).lower()
+        normalized = re.sub(r"(?<=\d),(?=\d)", "", normalized)
+        normalized = normalized.replace("_", " ")
+        normalized = re.sub(r"[^a-z0-9\s]", " ", normalized)
+        return canonicalize_text(normalized)
+
     def _tokens(self, text: str) -> set[str]:
-        return set(re.findall(r"[a-z0-9]+", text.lower()))
+        return set(re.findall(r"[a-z0-9]+", self._normalize_for_matching(text)))
+
+    def _content_tokens(self, text: str) -> set[str]:
+        tokens = {token for token in re.findall(r"[a-z0-9]+", text) if token not in STOPWORDS}
+        return tokens or set(re.findall(r"[a-z0-9]+", text))
 
     def _support_ratio(self, claim_tokens: set[str], snippet_tokens: set[str]) -> float:
         if not claim_tokens:
             return 0.0
-        overlap = claim_tokens & snippet_tokens
-        return len(overlap) / len(claim_tokens)
+        matched = {token for token in claim_tokens if self._token_matches(token, snippet_tokens)}
+        return len(matched) / len(claim_tokens)
+
+    def _entity_overlap_ratio(self, claim_tokens: set[str], snippet_tokens: set[str]) -> float:
+        entity_tokens = {token for token in claim_tokens if not token.isdigit()}
+        if not entity_tokens:
+            return 0.0
+        matched = {token for token in entity_tokens if self._token_matches(token, snippet_tokens)}
+        return len(matched) / len(entity_tokens)
+
+    def _token_matches(self, token: str, snippet_tokens: set[str]) -> bool:
+        if token in snippet_tokens:
+            return True
+        if token.isdigit() or len(token) < 4:
+            return False
+        return any(token in snippet_token for snippet_token in snippet_tokens if snippet_token.isalpha())
+
+    def _numbers(self, text: str) -> set[str]:
+        return set(re.findall(r"\d+", text))
+
+    def _has_exact_numeric_support(self, claim_numbers: set[str], snippet_text: str) -> bool:
+        if not claim_numbers:
+            return False
+        snippet_numbers = self._numbers(snippet_text)
+        return any(number in snippet_numbers for number in claim_numbers)

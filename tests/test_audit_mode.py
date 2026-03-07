@@ -12,16 +12,22 @@ from src.agents.query_agent import QueryAgentResult
 from src.models import ExtractionStrategy, ProvenanceChain, ProvenanceChainEntry, ProvenanceRef
 
 
-def _entry(record_id: str, snippet: str) -> ProvenanceChainEntry:
+def _entry(
+    record_id: str,
+    snippet: str,
+    *,
+    document_name: str = "sample.pdf",
+    page_number: int = 1,
+) -> ProvenanceChainEntry:
     return ProvenanceChainEntry(
         record_id=record_id,
         record_type="chunk",
         section_path=("2 Results",),
         snippet=snippet,
         provenance=ProvenanceRef(
-            document_name="sample.pdf",
+            document_name=document_name,
             doc_id="doc123",
-            page_number=1,
+            page_number=page_number,
             bbox=(0.0, 10.0, 80.0, 22.0),
             content_hash=f"hash-{record_id}",
             strategy_used=ExtractionStrategy.strategy_b,
@@ -30,8 +36,22 @@ def _entry(record_id: str, snippet: str) -> ProvenanceChainEntry:
     )
 
 
-def _verified_result(answer: str, snippets: list[str]) -> QueryAgentResult:
-    entries = tuple(_entry(f"chunk-{index}", snippet) for index, snippet in enumerate(snippets, start=1))
+def _verified_result(
+    answer: str,
+    snippets: list[str],
+    *,
+    document_name: str = "sample.pdf",
+    page_number: int = 1,
+) -> QueryAgentResult:
+    entries = tuple(
+        _entry(
+            f"chunk-{index}",
+            snippet,
+            document_name=document_name,
+            page_number=page_number,
+        )
+        for index, snippet in enumerate(snippets, start=1)
+    )
     return QueryAgentResult(
         query="results precision",
         status="verified",
@@ -111,6 +131,29 @@ def test_verify_claim_returns_verified_with_supporting_citations() -> None:
     assert verification.provenance_chain is not None
     assert len(verification.provenance_chain.entries) == 1
     assert verification.provenance_chain.entries[0].snippet == "Revenue improved by 250 in 2024."
+
+
+def test_verify_claim_accepts_ocr_collapsed_numeric_near_hit() -> None:
+    result = _verified_result(
+        answer="Cash and cash equivalents at the end of the year was 28,191,157.",
+        snippets=[
+            "Cashand cashequivalentsat the endoftheyear | 17 | 28,191,157 | 15,194,080",
+        ],
+        document_name="2022_Audited_Financial_Statement_Report.pdf",
+        page_number=3,
+    )
+
+    verification = AuditMode().verify_claim(
+        "The report states that cash and cash equivalents at the end of the year was 28,191,157.",
+        result,
+    )
+
+    assert verification.status == "verified"
+    assert verification.provenance_chain is not None
+    assert verification.provenance_chain.entries[0].provenance.document_name == (
+        "2022_Audited_Financial_Statement_Report.pdf"
+    )
+    assert verification.provenance_chain.entries[0].provenance.page_number == 3
 
 
 def test_verify_claim_returns_unverifiable_when_claim_is_not_supported() -> None:
