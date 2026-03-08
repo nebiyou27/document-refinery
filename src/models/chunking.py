@@ -6,7 +6,7 @@ import hashlib
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
 from src.utils.hashing import canonicalize_text, ldu_content_hash
 
@@ -158,7 +158,20 @@ class PageIndexNode(BaseModel):
     end_page: int = Field(ge=1)
     bbox: tuple[float, float, float, float] | None = None
     child_ids: list[str] = Field(default_factory=list)
+    child_sections: list[str] = Field(default_factory=list)
     ldu_ids: list[str] = Field(default_factory=list)
     chunk_ids: list[str] = Field(default_factory=list)
     order_index: int = Field(default=0, ge=0)
     summary: str | None = None
+    key_entities: list[str] = Field(default_factory=list)
+    data_types_present: list[str] = Field(default_factory=list)
+
+    @computed_field
+    @property
+    def page_start(self) -> int:
+        return self.start_page
+
+    @computed_field
+    @property
+    def page_end(self) -> int:
+        return self.end_page

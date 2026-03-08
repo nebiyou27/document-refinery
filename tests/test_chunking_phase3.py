@@ -1219,6 +1219,38 @@ def test_page_index_builder_attaches_ldus_to_leaf_and_aggregates_page_ranges() -
     assert root.end_page == 3
 
 
+def test_page_index_builder_populates_entities_data_types_and_child_sections() -> None:
+    ldus = [
+        _ldu(
+            text="CPI = 17.1% for Bread and Cereals in March EFY2017.",
+            page_number=1,
+            source_block_order=0,
+            section_path=("2 Inflation",),
+        ),
+        LDU(
+            doc_id="doc123",
+            page_number=1,
+            bbox=(0.0, 2.0, 10.0, 3.0),
+            kind=LDUKind.table,
+            text="Item | Weight\nBread and Cereals | 17.1",
+            section_path=("2 Inflation",),
+            source_block_order=1,
+        ),
+    ]
+
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    root = _node_by_path(tree, ())
+    inflation = _node_by_path(tree, ("2 Inflation",))
+
+    assert root.child_sections == ["2 Inflation"]
+    assert "CPI" in inflation.key_entities
+    assert "17.1%" in inflation.key_entities
+    assert "table" in inflation.data_types_present
+    assert "equation" in inflation.data_types_present
+    assert inflation.page_start == inflation.start_page
+    assert inflation.page_end == inflation.end_page
+
+
 def test_table_root_only_recovery_assigns_synthetic_section_paths_and_logs(caplog) -> None:
     page1 = ExtractedPage(
         doc_id="doc123",
@@ -1604,6 +1636,21 @@ def test_page_index_query_handles_missing_summaries() -> None:
     results = PageIndexQueryEngine().query(tree=tree, topic="results")
 
     assert results[0].section_path == ("2 Results",)
+
+
+def test_page_index_tree_traverse_returns_top_matches_for_topic() -> None:
+    ldus = [
+        _ldu(text="Revenue and margin overview.", page_number=1, source_block_order=0, section_path=("1 Overview",)),
+        _ldu(text="Precision improved over baseline.", page_number=2, source_block_order=0, section_path=("2 Retrieval Precision",)),
+    ]
+    tree = PageIndexBuilder().build(doc_id="doc123", ldus=ldus)
+    _node_by_path(tree, ("1 Overview",)).summary = "High-level performance summary."
+    _node_by_path(tree, ("2 Retrieval Precision",)).summary = "Precision and recall metrics."
+
+    results = tree.traverse(topic="precision metrics", top_k=1)
+
+    assert len(results) == 1
+    assert results[0].section_path == ("2 Retrieval Precision",)
 
 
 def test_vector_store_ingests_ldus() -> None:
