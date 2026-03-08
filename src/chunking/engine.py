@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +25,9 @@ class OrderedUnit:
     strategy_used: str
     confidence_score: float
     document_name: str
+    synthetic_text: str | None = None
+    synthetic_bbox: tuple[float, float, float, float] | None = None
+    list_item_count: int = 0
 
 
 class ChunkingConfig(BaseModel):
@@ -69,9 +73,11 @@ class ChunkingEngine:
                 unit=unit,
                 section_path=section_path,
             )
-            self.validator.raise_for_issues(self.validator.validate_ldu(ldu))
             ldus.append(ldu)
 
+        self._enrich_ldus_for_rules(ldus)
+        for ldu in ldus:
+            self.validator.raise_for_issues(self.validator.validate_ldu(ldu))
         return ldus
 
     def build_chunks(self, document: ExtractedDocument, ldus: list[LDU] | None = None) -> list[Chunk]:
@@ -142,7 +148,11 @@ class ChunkingEngine:
             "strategy_used": first_ldu.metadata.get("strategy_used"),
             "confidence_score": first_ldu.metadata.get("confidence_score"),
             "document_name": first_ldu.metadata.get("document_name"),
+            "parent_section": first_ldu.metadata.get("parent_section"),
         }
+        relationships = self._collect_chunk_relationships(ldus)
+        if relationships:
+            metadata["relationships"] = relationships
         chunk = Chunk(
             doc_id=doc_id,
             page_number=ldus[0].page_number,
@@ -168,7 +178,11 @@ class ChunkingEngine:
                 "strategy_used": ldu.metadata.get("strategy_used"),
                 "confidence_score": ldu.metadata.get("confidence_score"),
                 "document_name": ldu.metadata.get("document_name"),
+                "parent_section": ldu.metadata.get("parent_section"),
             }
+            relationships = self._collect_chunk_relationships([ldu])
+            if relationships:
+                metadata["relationships"] = relationships
             chunk = Chunk(
                 doc_id=doc_id,
                 page_number=ldu.page_number,
@@ -234,7 +248,44 @@ class ChunkingEngine:
     def _collect_ordered_units(self, document: ExtractedDocument) -> list[OrderedUnit]:
         ordered_units: list[OrderedUnit] = []
         for page in sorted(document.pages, key=lambda current: current.page_number):
-            for text_block in sorted(page.text_blocks, key=lambda block: block.reading_order):
+            text_blocks = sorted(page.text_blocks, key=lambda block: block.reading_order)
+            index = 0
+            while index < len(text_blocks):
+                text_block = text_blocks[index]
+                if self._is_numbered_list_item(text_block.text):
+                    grouped_blocks = [text_block]
+                    scan = index + 1
+                    while scan < len(text_blocks) and self._is_numbered_list_item(text_blocks[scan].text):
+                        grouped_blocks.append(text_blocks[scan])
+                        scan += 1
+
+                    list_text = "\n".join(block.text.strip() for block in grouped_blocks if block.text.strip())
+                    list_bbox = self._merge_raw_bboxes([block.bbox for block in grouped_blocks])
+                    source_order = grouped_blocks[0].reading_order
+                    ordered_units.append(
+                        OrderedUnit(
+                            candidate=SectionCandidate(
+                                candidate_id=f"list:{page.page_number}:{source_order}",
+                                kind=LDUKind.list,
+                                page_number=text_block.page_number,
+                                source_block_order=source_order,
+                                text=list_text,
+                                bbox=list_bbox,
+                            ),
+                            block=text_block,
+                            kind=LDUKind.list,
+                            source_block_order=source_order,
+                            strategy_used=page.metadata.strategy_used,
+                            confidence_score=page.metadata.confidence_score,
+                            document_name=document.file_name,
+                            synthetic_text=list_text,
+                            synthetic_bbox=list_bbox,
+                            list_item_count=len(grouped_blocks),
+                        )
+                    )
+                    index = scan
+                    continue
+
                 ordered_units.append(
                     OrderedUnit(
                         candidate=SectionCandidate(
@@ -253,6 +304,7 @@ class ChunkingEngine:
                         document_name=document.file_name,
                     )
                 )
+                index += 1
 
             for table_block in sorted(page.table_blocks, key=lambda block: block.table_index):
                 table_text = "\n".join(" | ".join(cell for cell in row) for row in table_block.rows) or "[table]"
@@ -340,6 +392,19 @@ class ChunkingEngine:
                 strategy_used=unit.strategy_used,
                 confidence_score=unit.confidence_score,
                 document_name=unit.document_name,
+            )
+        if kind == LDUKind.list:
+            return self._ldu_from_list_blocks(
+                doc_id=doc_id,
+                block=unit.block,
+                section_path=section_path,
+                source_block_order=unit.source_block_order,
+                strategy_used=unit.strategy_used,
+                confidence_score=unit.confidence_score,
+                document_name=unit.document_name,
+                list_text=unit.synthetic_text,
+                list_bbox=unit.synthetic_bbox,
+                list_item_count=unit.list_item_count,
             )
         raise ValueError(f"Unsupported candidate kind: {kind}")
 
@@ -468,6 +533,40 @@ class ChunkingEngine:
             source_block_order=source_block_order,
         )
 
+    def _ldu_from_list_blocks(
+        self,
+        doc_id: str,
+        block: TextBlock | TableBlock | FigureBlock,
+        section_path: tuple[str, ...],
+        source_block_order: int,
+        strategy_used: str,
+        confidence_score: float,
+        document_name: str,
+        list_text: str | None,
+        list_bbox: tuple[float, float, float, float] | None,
+        list_item_count: int,
+    ) -> LDU:
+        if not isinstance(block, TextBlock):
+            raise TypeError("Expected TextBlock for grouped list items")
+        text = list_text or block.text
+        bbox = list_bbox or block.bbox
+        return LDU(
+            doc_id=doc_id,
+            page_number=block.page_number,
+            bbox=bbox,
+            kind=LDUKind.list,
+            text=text,
+            section_path=section_path,
+            metadata={
+                "block_type": block.block_type.value,
+                "list_item_count": max(1, list_item_count),
+                "strategy_used": strategy_used,
+                "confidence_score": confidence_score,
+                "document_name": document_name,
+            },
+            source_block_order=source_block_order,
+        )
+
     def _join_text(self, ldus: list[LDU]) -> str:
         return "\n\n".join(ldu.text for ldu in ldus)
 
@@ -477,3 +576,111 @@ class ChunkingEngine:
         x1 = max(ldu.bbox[2] for ldu in ldus)
         y1 = max(ldu.bbox[3] for ldu in ldus)
         return (x0, y0, x1, y1)
+
+    def _merge_raw_bboxes(
+        self, bboxes: list[tuple[float, float, float, float]]
+    ) -> tuple[float, float, float, float]:
+        x0 = min(bbox[0] for bbox in bboxes)
+        y0 = min(bbox[1] for bbox in bboxes)
+        x1 = max(bbox[2] for bbox in bboxes)
+        y1 = max(bbox[3] for bbox in bboxes)
+        return (x0, y0, x1, y1)
+
+    def _is_numbered_list_item(self, text: str) -> bool:
+        return bool(self._NUMBERED_LIST_ITEM_RE.match(text or ""))
+
+    def _enrich_ldus_for_rules(self, ldus: list[LDU]) -> None:
+        table_targets = self._kind_targets_by_number(ldus, LDUKind.table)
+        figure_targets = self._kind_targets_by_number(ldus, LDUKind.figure)
+        section_targets = self._section_targets_by_number(ldus)
+
+        for ldu in ldus:
+            ldu.metadata["chunk_type"] = ldu.kind.value
+            ldu.metadata["page_refs"] = [ldu.page_number]
+            ldu.metadata["bounding_box"] = list(ldu.bbox)
+            ldu.metadata["token_count"] = ldu.token_count
+            ldu.metadata["parent_section"] = ldu.parent_section
+
+            relationships: list[dict[str, str | int | None]] = []
+            unresolved: list[str] = []
+            mentions: list[str] = []
+            for match in self._CROSS_REFERENCE_RE.finditer(ldu.text):
+                target_kind = str(match.group("kind")).lower()
+                target_number = str(match.group("number"))
+                mention = f"{target_kind}:{target_number}"
+                mentions.append(mention)
+                target_id: str | None = None
+                if target_kind == "table":
+                    target_id = table_targets.get(target_number)
+                elif target_kind == "figure":
+                    target_id = figure_targets.get(target_number)
+                elif target_kind == "section":
+                    target_id = section_targets.get(target_number)
+                if target_id is None:
+                    unresolved.append(mention)
+                relationships.append(
+                    {
+                        "relationship_type": "cross_reference",
+                        "target_type": target_kind,
+                        "target_number": int(target_number),
+                        "target_ldu_id": target_id,
+                    }
+                )
+
+            if mentions:
+                ldu.metadata["cross_reference_mentions"] = mentions
+            ldu.metadata["relationships"] = relationships
+            ldu.metadata["unresolved_cross_references"] = unresolved
+
+    def _kind_targets_by_number(self, ldus: list[LDU], kind: LDUKind) -> dict[str, str]:
+        targets: dict[str, str] = {}
+        counter = 0
+        for ldu in ldus:
+            if ldu.kind != kind or not ldu.ldu_id:
+                continue
+            counter += 1
+            targets[str(counter)] = ldu.ldu_id
+        return targets
+
+    def _section_targets_by_number(self, ldus: list[LDU]) -> dict[str, str]:
+        targets: dict[str, str] = {}
+        for ldu in ldus:
+            if not ldu.ldu_id:
+                continue
+            for label in ldu.section_path:
+                number_match = re.match(r"^\s*(\d+)(?:[.)]|\s|$)", label)
+                if number_match and number_match.group(1) not in targets:
+                    targets[number_match.group(1)] = ldu.ldu_id
+        return targets
+
+    def _collect_chunk_relationships(self, ldus: list[LDU]) -> list[dict[str, str | int]]:
+        seen: set[tuple[str, int, str]] = set()
+        relationships: list[dict[str, str | int]] = []
+        for ldu in ldus:
+            raw = ldu.metadata.get("relationships")
+            if not isinstance(raw, list):
+                continue
+            for item in raw:
+                if not isinstance(item, dict):
+                    continue
+                relationship_type = str(item.get("relationship_type") or "").strip()
+                target_type = str(item.get("target_type") or "").strip()
+                target_number = item.get("target_number")
+                target_ldu_id = str(item.get("target_ldu_id") or "").strip()
+                if not relationship_type or not target_type or not isinstance(target_number, int) or not target_ldu_id:
+                    continue
+                dedupe_key = (target_type, target_number, target_ldu_id)
+                if dedupe_key in seen:
+                    continue
+                seen.add(dedupe_key)
+                relationships.append(
+                    {
+                        "relationship_type": relationship_type,
+                        "target_type": target_type,
+                        "target_number": target_number,
+                        "target_ldu_id": target_ldu_id,
+                    }
+                )
+        return relationships
+    _NUMBERED_LIST_ITEM_RE = re.compile(r"^\s*(?:\d+|[A-Za-z])[.)]\s+\S")
+    _CROSS_REFERENCE_RE = re.compile(r"\b(?P<kind>table|figure|section)\s+(?P<number>\d+)\b", re.IGNORECASE)

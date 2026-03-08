@@ -22,6 +22,9 @@ class ChunkingRules(BaseModel):
     require_provenance: bool = True
     require_table_header: bool = True
     require_figure_caption_metadata: bool = True
+    require_parent_section_metadata: bool = True
+    require_cross_reference_resolution: bool = True
+    require_ldu_structured_fields: bool = True
     standalone_kinds: tuple[LDUKind, ...] = (LDUKind.table, LDUKind.figure)
     split_on_section_change: bool = True
     allow_multi_page_chunks: bool = False
@@ -38,12 +41,12 @@ class ChunkValidator:
         issues: list[ValidationIssue] = []
 
         if self.rules.require_provenance:
-            if ldu.page_number < 1 or not ldu.content_hash:
+            if ldu.page_number < 1 or not ldu.content_hash or not ldu.bbox:
                 issues.append(
                     ValidationIssue(
                         rule_id="I-1",
                         code="provenance_missing",
-                        message="LDU must include page_number and content_hash",
+                        message="LDU must include page_number, bbox, and content_hash",
                         ldu_id=ldu.ldu_id,
                     )
                 )
@@ -68,6 +71,42 @@ class ChunkValidator:
                         rule_id="I-6",
                         code="figure_caption_missing",
                         message="Figure LDUs must store caption text in metadata",
+                        ldu_id=ldu.ldu_id,
+                    )
+                )
+
+        if self.rules.require_parent_section_metadata and ldu.section_path:
+            parent_section = ldu.metadata.get("parent_section")
+            expected_parent = ldu.section_path[-1]
+            if not isinstance(parent_section, str) or parent_section.strip() != expected_parent:
+                issues.append(
+                    ValidationIssue(
+                        rule_id="I-7",
+                        code="parent_section_missing",
+                        message="LDU must propagate parent_section from section_path",
+                        ldu_id=ldu.ldu_id,
+                    )
+                )
+
+        if self.rules.require_cross_reference_resolution:
+            unresolved = ldu.metadata.get("unresolved_cross_references")
+            if isinstance(unresolved, list) and unresolved:
+                issues.append(
+                    ValidationIssue(
+                        rule_id="I-9",
+                        code="cross_reference_unresolved",
+                        message="LDU contains unresolved cross references",
+                        ldu_id=ldu.ldu_id,
+                    )
+                )
+
+        if self.rules.require_ldu_structured_fields:
+            if not ldu.page_refs or not ldu.chunk_type or ldu.token_count < 1:
+                issues.append(
+                    ValidationIssue(
+                        rule_id="I-10",
+                        code="ldu_structured_fields_missing",
+                        message="LDU must provide chunk_type, page_refs, and token_count",
                         ldu_id=ldu.ldu_id,
                     )
                 )

@@ -32,6 +32,7 @@ class LDUKind(str, Enum):
     text = "text"
     table = "table"
     figure = "figure"
+    list = "list"
 
 
 class ValidationSeverity(str, Enum):
@@ -100,6 +101,34 @@ class LDU(BaseModel):
             )
             self.ldu_id = hashlib.sha256(identity.encode("utf-8")).hexdigest()
         return self
+
+    @computed_field
+    @property
+    def chunk_type(self) -> str:
+        return self.kind.value
+
+    @computed_field
+    @property
+    def page_refs(self) -> list[int]:
+        return [self.page_number]
+
+    @computed_field
+    @property
+    def bounding_box(self) -> tuple[float, float, float, float]:
+        return self.bbox
+
+    @computed_field
+    @property
+    def parent_section(self) -> str | None:
+        return self.section_path[-1] if self.section_path else None
+
+    @computed_field
+    @property
+    def token_count(self) -> int:
+        normalized = canonicalize_text(self.text)
+        if not normalized:
+            return 0
+        return len(normalized.split(" "))
 
 
 class Chunk(BaseModel):
