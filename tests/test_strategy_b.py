@@ -4,6 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import src.strategies.strategy_b as strategy_b
+from src.models.extracted_document import ExtractedPage, ExtractionMetadata, TableBlock
 
 
 class _FakeBBox:
@@ -75,13 +76,39 @@ def test_build_docling_converter_default_uses_existing_constructor(monkeypatch) 
         def __init__(self, *args, **kwargs) -> None:
             calls.append({"args": args, "kwargs": kwargs})
 
+    class _FakeInputFormat:
+        PDF = "pdf"
+
+    class _FakeAcceleratorOptions:
+        def __init__(self, *, device: str) -> None:
+            self.device = device
+
+    class _FakePdfPipelineOptions:
+        def __init__(self, *, accelerator_options=None) -> None:
+            self.accelerator_options = accelerator_options
+
+    class _FakePdfFormatOption:
+        def __init__(self, *, pipeline_options) -> None:
+            self.pipeline_options = pipeline_options
+
     monkeypatch.delenv("DOC_REFINERY_DOCLING_DEVICE", raising=False)
     monkeypatch.setattr(strategy_b, "_import_docling", lambda: _RecordingConverter)
+    monkeypatch.setattr(
+        strategy_b,
+        "_import_docling_pdf_options",
+        lambda: (
+            _FakeAcceleratorOptions,
+            _FakeInputFormat,
+            _FakePdfFormatOption,
+            _FakePdfPipelineOptions,
+        ),
+    )
 
     converter = strategy_b._build_docling_converter()
 
     assert isinstance(converter, _RecordingConverter)
-    assert calls == [{"args": (), "kwargs": {}}]
+    assert len(calls) == 1
+    assert "format_options" in calls[0]["kwargs"]
 
 
 def test_build_docling_converter_cuda_sets_pdf_pipeline_device(monkeypatch) -> None:
@@ -132,7 +159,7 @@ def test_strategy_b_output_validates(monkeypatch, tmp_path: Path) -> None:
     pdf_path = tmp_path / "sample.pdf"
     pdf_path.write_bytes(b"%PDF-FAKE")
 
-    monkeypatch.setattr(strategy_b, "_import_docling", lambda: _FakeConverter)
+    monkeypatch.setattr(strategy_b, "_build_docling_converter", lambda: _FakeConverter())
     monkeypatch.setattr(
         strategy_b,
         "_write_single_page_pdf",
@@ -166,3 +193,67 @@ def test_strategy_b_output_validates(monkeypatch, tmp_path: Path) -> None:
         assert "image_area_ratio" in page.signals
         assert "table_count" in page.signals
         assert 0.0 <= page.metadata.confidence_score <= 1.0
+
+
+def _page_with_tables(table_blocks: list[TableBlock]) -> ExtractedPage:
+    return ExtractedPage(
+        doc_id="doc1",
+        page_number=1,
+        status="ok",
+        text="",
+        tables=[{"table_index": block.table_index, "rows": block.rows} for block in table_blocks],
+        metadata=ExtractionMetadata(
+            strategy_used="strategy_b",
+            confidence_score=0.8,
+            processing_time_sec=0.1,
+            cost_estimate_usd=0.0,
+            escalation_triggered=False,
+            escalation_target=None,
+        ),
+        signals={"char_count": 100, "char_density": 0.01, "image_area_ratio": 0.1, "table_count": len(table_blocks)},
+        text_blocks=[],
+        table_blocks=table_blocks,
+        figure_blocks=[],
+        page_content_hash="hash",
+    )
+
+
+def test_repair_table_boundaries_replaces_overlapping_truncated_table() -> None:
+    existing = TableBlock(
+        doc_id="doc1",
+        page_number=1,
+        bbox=(10.0, 10.0, 200.0, 70.0),
+        content_hash="old",
+        table_index=0,
+        rows=[["Year", "Value"], ["2024", "100"]],
+    )
+    page = _page_with_tables([existing])
+    candidates = [
+        (
+            (10.0, 10.0, 200.0, 70.0),
+            [["Year", "Q1", "Q2"], ["2024", "100", "120"], ["2025", "110", "130"]],
+        )
+    ]
+
+    strategy_b._repair_table_boundaries_for_page(page=page, table_candidates=candidates)
+
+    assert len(page.table_blocks) == 1
+    assert page.table_blocks[0].rows == [["Year", "Q1", "Q2"], ["2024", "100", "120"], ["2025", "110", "130"]]
+    assert page.signals["table_count"] == 1
+
+
+def test_repair_table_boundaries_appends_missing_table() -> None:
+    page = _page_with_tables([])
+    candidates = [
+        (
+            (20.0, 20.0, 180.0, 120.0),
+            [["Category", "Amount"], ["Operating", "200"], ["Personnel", "150"]],
+        )
+    ]
+
+    strategy_b._repair_table_boundaries_for_page(page=page, table_candidates=candidates)
+
+    assert len(page.table_blocks) == 1
+    assert page.table_blocks[0].table_index == 0
+    assert page.table_blocks[0].rows[0] == ["Category", "Amount"]
+    assert page.signals["table_count"] == 1
