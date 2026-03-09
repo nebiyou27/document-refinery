@@ -236,6 +236,50 @@ def _recover_columns_from_single_cell_rows(rows: list[list[str]]) -> list[list[s
     return recovered
 
 
+def _is_likely_tabular_rows(rows: list[list[str]]) -> bool:
+    if len(rows) < 2:
+        return False
+    max_cols = max((len(row) for row in rows), default=0)
+    if max_cols < 2:
+        return False
+
+    non_empty_counts = []
+    cell_lengths: list[int] = []
+    numeric_cells = 0
+    for row in rows:
+        non_empty = 0
+        for cell in row:
+            value = str(cell or "").strip()
+            if not value:
+                continue
+            non_empty += 1
+            cell_lengths.append(len(value))
+            if re.fullmatch(r"[-+]?\d[\d,]*(?:\.\d+)?%?", value):
+                numeric_cells += 1
+        non_empty_counts.append(non_empty)
+
+    if not cell_lengths:
+        return False
+
+    multi_cell_row_ratio = sum(1 for count in non_empty_counts if count >= 2) / max(len(non_empty_counts), 1)
+    if multi_cell_row_ratio < 0.6:
+        return False
+
+    long_cells = sum(1 for length in cell_lengths if length > 120)
+    if long_cells > 0:
+        long_ratio = long_cells / max(len(cell_lengths), 1)
+        if long_ratio > 0.1 or len(rows) <= 4:
+            return False
+
+    if len(rows) <= 2 and max(cell_lengths) > 50:
+        return False
+
+    if numeric_cells == 0 and len(rows) <= 3:
+        return False
+
+    return True
+
+
 def _non_empty_cells(rows: list[list[str]]) -> int:
     return sum(1 for row in rows for cell in row if str(cell or "").strip())
 
@@ -297,6 +341,8 @@ def _pdfplumber_table_candidates_for_pages(
                         continue
                     max_cols = max((len(row) for row in rows), default=0)
                     if max_cols < 2:
+                        continue
+                    if not _is_likely_tabular_rows(rows):
                         continue
                     bbox_raw = (
                         getattr(tables[idx], "bbox", None)
@@ -619,7 +665,8 @@ def extract_pages_with_docling(
     file_name = pdf_path.name
     converter = _build_docling_converter()
     adapter = DoclingDocumentAdapter(doc_id=doc_id, file_name=file_name)
-    table_candidates_by_page = _pdfplumber_table_candidates_for_pages(pdf_path, normalized_pages)
+    candidate_pages = [page_number for page_number in normalized_pages if int(page_signals[page_number - 1].get("table_count", 0)) > 0]
+    table_candidates_by_page = _pdfplumber_table_candidates_for_pages(pdf_path, candidate_pages)
 
     diag_enabled = os.getenv("DOC_REFINERY_DOCLING_DIAG", "").strip().lower() in {"1", "true", "yes", "on"}
 
@@ -652,10 +699,12 @@ def extract_pages_with_docling(
                     if not adapted_pages:
                         raise RuntimeError("Docling returned no pages")
                     page = adapted_pages[0]
-                    _repair_table_boundaries_for_page(
-                        page=page,
-                        table_candidates=table_candidates_by_page.get(page_number, []),
-                    )
+                    expected_table_count = int(page_signal.get("table_count", 0))
+                    if expected_table_count > len(page.table_blocks):
+                        _repair_table_boundaries_for_page(
+                            page=page,
+                            table_candidates=table_candidates_by_page.get(page_number, []),
+                        )
                     page.metadata.processing_time_sec = time.perf_counter() - page_start
                     pages_out[page_number] = _remap_page_identity(
                         page=page,

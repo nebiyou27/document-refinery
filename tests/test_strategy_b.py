@@ -257,3 +257,31 @@ def test_repair_table_boundaries_appends_missing_table() -> None:
     assert page.table_blocks[0].table_index == 0
     assert page.table_blocks[0].rows[0] == ["Category", "Amount"]
     assert page.signals["table_count"] == 1
+
+
+def test_recover_columns_from_single_cell_rows_preserves_expected_alignment() -> None:
+    rows = [
+        ["Month    Food Inflation    Non-Food Inflation"],
+        ["June-EFY2016    12.3    8.1"],
+        ["June-EFY2017    13.0    9.4"],
+    ]
+
+    recovered = strategy_b._recover_columns_from_single_cell_rows(rows)
+
+    assert recovered[0] == ["Month", "Food Inflation", "Non-Food Inflation"]
+    assert recovered[1] == ["June-EFY2016", "12.3", "8.1"]
+    assert recovered[2] == ["June-EFY2017", "13.0", "9.4"]
+
+
+def test_is_likely_tabular_rows_rejects_narrative_like_rows() -> None:
+    rows = [
+        ["Issue No. / Page", "24", "2017", "9"],
+        [
+            "Recent Improvements in CPI Price survey ... long narrative paragraph that is not tabular data.",
+            "1963",
+            "1955",
+            "2000",
+        ],
+    ]
+
+    assert strategy_b._is_likely_tabular_rows(rows) is False
