@@ -1,5 +1,11 @@
 ﻿# Document Refinery
 
+**What** - Document Refinery converts PDFs into profiled documents, extracted page content, semantic chunks, PageIndex structures, and retrieval-backed answers.
+
+**How** - It uses a staged agentic pipeline with triage, adaptive extraction via pdfplumber/Docling/OCR/VLM fallbacks, chunking, provenance tracking, and local Ollama-backed Q&A.
+
+**Why** - It makes heterogeneous document collections searchable, auditable, and answerable with page-level evidence instead of brittle one-pass extraction.
+
 A multi-stage pipeline for PDF intelligence:
 1. Profile and classify documents.
 2. Extract page content with adaptive strategies.
